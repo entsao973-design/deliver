@@ -19,8 +19,8 @@ STATUS_LABELS = {
 
 
 class DeliveryRepository:
-    def __init__(self, excel_path: str, data_file: str, photo_root: str, archive_root: str | None = None) -> None:
-        self.excel_path = Path(excel_path)
+    def __init__(self, excel_path: str | None, data_file: str, photo_root: str, archive_root: str | None = None) -> None:
+        self.excel_path = Path(excel_path) if excel_path else None
         self.data_file = Path(data_file)
         self.photo_root = Path(photo_root)
         self.archive_root = Path(archive_root) if archive_root else self.photo_root.parent / "archives"
@@ -28,10 +28,14 @@ class DeliveryRepository:
         self.data_file.parent.mkdir(parents=True, exist_ok=True)
         self.photo_root.mkdir(parents=True, exist_ok=True)
         self.archive_root.mkdir(parents=True, exist_ok=True)
-        if not self.data_file.exists():
+        if not self.data_file.exists() and self.excel_path and self.excel_path.exists():
             self.reload_from_excel()
 
     def reload_from_excel(self) -> None:
+        if not self.excel_path:
+            raise ValueError("No default Excel file is configured. Upload Excel from the admin page.")
+        if not self.excel_path.exists():
+            raise ValueError(f"Default Excel file not found: {self.excel_path}")
         self.import_excel_file(self.excel_path)
 
     def import_excel_file(self, excel_path: str | Path) -> dict[str, int]:

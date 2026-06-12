@@ -268,21 +268,25 @@ class SqlServerRepository(SqlServerBase):
     def __init__(
         self,
         database_config: dict[str, Any],
-        excel_path: str,
+        excel_path: str | None,
         photo_root: str,
         archive_root: str | None = None,
     ) -> None:
-        self.excel_path = Path(excel_path)
+        self.excel_path = Path(excel_path) if excel_path else None
         self.photo_root = Path(photo_root)
         self.archive_root = Path(archive_root) if archive_root else self.photo_root.parent / "archives"
         self._lock = threading.Lock()
         self.photo_root.mkdir(parents=True, exist_ok=True)
         self.archive_root.mkdir(parents=True, exist_ok=True)
         super().__init__(database_config)
-        if self.excel_path.exists() and self._count_deliveries() == 0:
+        if self.excel_path and self.excel_path.exists() and self._count_deliveries() == 0:
             self.reload_from_excel()
 
     def reload_from_excel(self) -> None:
+        if not self.excel_path:
+            raise ValueError("No default Excel file is configured. Upload Excel from the admin page.")
+        if not self.excel_path.exists():
+            raise ValueError(f"Default Excel file not found: {self.excel_path}")
         self.import_excel_file(self.excel_path)
 
     def import_excel_file(self, excel_path: str | Path) -> dict[str, int]:

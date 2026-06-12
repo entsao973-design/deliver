@@ -1,5 +1,5 @@
 {
-  "excel_path": "C:\\Users\\duncan.DUNCAN-PC\\Desktop\\溫控車配送紀錄 - 2026.06.10北區.中一.xlsm",
+  "excel_path": "",
   "storage_backend": "sqlserver",
   "database": {
     "type": "sqlserver",

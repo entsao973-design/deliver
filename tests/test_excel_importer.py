@@ -141,6 +141,20 @@ class ExcelImporterTest(unittest.TestCase):
 
 
 class ImporterRulesTest(unittest.TestCase):
+    def test_repository_allows_missing_default_excel(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_file = Path(temp_dir) / "deliveries.json"
+            repo = DeliveryRepository(None, str(data_file), str(Path(temp_dir) / "photos"))
+
+            self.assertEqual(repo.counts_for_vehicle("TEST-001")["total"], 0)
+
+            excel_path = Path(temp_dir) / "uploaded.xlsx"
+            build_delivery_workbook(excel_path)
+            summary = repo.import_excel_file(excel_path)
+
+            self.assertEqual(summary["inserted"], 4)
+            self.assertEqual(repo.counts_for_vehicle("TEST-001", "2026-06-11")["total"], 4)
+
     def test_imports_merged_sequence_rows_and_ignores_non_numeric_rows(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             excel_path = Path(temp_dir) / "merged.xlsx"

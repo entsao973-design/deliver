@@ -23,13 +23,13 @@ def create_repository(config: dict):
 
         return SqlServerRepository(
             config.get("database", {}),
-            config["excel_path"],
+            config.get("excel_path"),
             config.get("photo_root", "storage/photos"),
             config.get("archive_root", "data/archives"),
         )
 
     return DeliveryRepository(
-        config["excel_path"],
+        config.get("excel_path"),
         config.get("data_file", "data/deliveries.json"),
         config.get("photo_root", "storage/photos"),
         config.get("archive_root", "data/archives"),
@@ -232,7 +232,11 @@ class DeliveryServer:
                 app.users = create_user_store(app.config)
                 app.upload_dir = Path(app.config.get("upload_dir", "data/uploads"))
                 app.upload_dir.mkdir(parents=True, exist_ok=True)
-                app.repo.reload_from_excel()
+                try:
+                    app.repo.reload_from_excel()
+                except (OSError, ValueError) as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
                 self._send_json({"ok": True})
 
             def _handle_admin_import(self) -> None:
