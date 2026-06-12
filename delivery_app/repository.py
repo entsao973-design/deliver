@@ -1,0 +1,471 @@
+from __future__ import annotations
+
+import base64
+import json
+import re
+import threading
+import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from .excel_importer import import_deliveries, normalize_vehicle_no
+
+
+STATUS_LABELS = {
+    "normal": "正常",
+    "abnormal": "異常",
+}
+
+
+class DeliveryRepository:
+    def __init__(self, excel_path: str, data_file: str, photo_root: str, archive_root: str | None = None) -> None:
+        self.excel_path = Path(excel_path)
+        self.data_file = Path(data_file)
+        self.photo_root = Path(photo_root)
+        self.archive_root = Path(archive_root) if archive_root else self.photo_root.parent / "archives"
+        self._lock = threading.Lock()
+        self.data_file.parent.mkdir(parents=True, exist_ok=True)
+        self.photo_root.mkdir(parents=True, exist_ok=True)
+        self.archive_root.mkdir(parents=True, exist_ok=True)
+        if not self.data_file.exists():
+            self.reload_from_excel()
+
+    def reload_from_excel(self) -> None:
+        self.import_excel_file(self.excel_path)
+
+    def import_excel_file(self, excel_path: str | Path) -> dict[str, int]:
+        imported = import_deliveries(excel_path)
+        summary = {"inserted": 0, "updated": 0, "skipped": 0, "locked_delivered": 0}
+
+        with self._lock:
+            data = self._read_data_unlocked()
+            deliveries = data.setdefault("deliveries", [])
+            by_invoice = {
+                record.get("invoice_no"): record
+                for record in deliveries
+                if record.get("invoice_no")
+            }
+
+            for imported_record in imported.get("deliveries", []):
+                invoice_no = imported_record.get("invoice_no")
+                existing = by_invoice.get(invoice_no) if invoice_no else None
+                if existing:
+                    if existing.get("status"):
+                        summary["locked_delivered"] += 1
+                        continue
+
+                    if self._same_imported_values(existing, imported_record):
+                        summary["skipped"] += 1
+                        continue
+
+                    keep = {
+                        "status": existing.get("status"),
+                        "photo_path": existing.get("photo_path"),
+                        "photo_updated_at": existing.get("photo_updated_at"),
+                        "deleted_at": existing.get("deleted_at"),
+                        "deleted_by": existing.get("deleted_by"),
+                    }
+                    existing.clear()
+                    existing.update(imported_record)
+                    existing.update(keep)
+                    existing["updated_at"] = datetime.now().isoformat(timespec="seconds")
+                    summary["updated"] += 1
+                else:
+                    deliveries.append(imported_record)
+                    if invoice_no:
+                        by_invoice[invoice_no] = imported_record
+                    summary["inserted"] += 1
+
+            data["source_excel"] = str(excel_path)
+            data["imported_at"] = datetime.now().isoformat(timespec="seconds")
+            self._write_data_unlocked(data)
+
+        return summary
+
+    def list_for_vehicle(
+        self,
+        vehicle_no: str,
+        include_delivered: bool = False,
+        delivery_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        vehicle_key = normalize_vehicle_no(vehicle_no)
+        with self._lock:
+            records = [
+                self._public_record(record)
+                for record in self._read_data_unlocked().get("deliveries", [])
+                if self._matches_vehicle_date(record, vehicle_key, delivery_date)
+                and not record.get("deleted_at")
+            ]
+
+        if not include_delivered:
+            records = [record for record in records if record.get("status") is None]
+
+        return sorted(records, key=lambda record: (record["customer"], record["company"], record["invoice_no"]))
+
+    def counts_for_vehicle(self, vehicle_no: str, delivery_date: str | None = None) -> dict[str, int]:
+        vehicle_key = normalize_vehicle_no(vehicle_no)
+        with self._lock:
+            records = [
+                record
+                for record in self._read_data_unlocked().get("deliveries", [])
+                if self._matches_vehicle_date(record, vehicle_key, delivery_date)
+                and not record.get("deleted_at")
+            ]
+
+        done = sum(1 for record in records if record.get("status"))
+        return {"open": len(records) - done, "done": done, "total": len(records)}
+
+    def dates_for_vehicle(self, vehicle_no: str) -> list[dict[str, str]]:
+        vehicle_key = normalize_vehicle_no(vehicle_no)
+        dates: dict[str, str] = {}
+        with self._lock:
+            for record in self._read_data_unlocked().get("deliveries", []):
+                if record.get("vehicle_no_normalized") == vehicle_key and not record.get("deleted_at"):
+                    dates[record["delivery_date"]] = record["date_folder"]
+
+        return [
+            {"delivery_date": delivery_date, "date_folder": date_folder}
+            for delivery_date, date_folder in sorted(dates.items(), reverse=True)
+        ]
+
+    def vehicle_meta(self, vehicle_no: str, delivery_date: str | None = None) -> dict[str, Any] | None:
+        vehicle_key = normalize_vehicle_no(vehicle_no)
+        selected_date = delivery_date or self.latest_date_for_vehicle(vehicle_no)
+        with self._lock:
+            for record in self._read_data_unlocked().get("deliveries", []):
+                if self._matches_vehicle_date(record, vehicle_key, selected_date):
+                    if record.get("deleted_at"):
+                        continue
+                    return {
+                        "vehicle_no": record["vehicle_no"],
+                        "driver": record["driver"],
+                        "delivery_date": record["delivery_date"],
+                        "date_folder": record["date_folder"],
+                    }
+        return None
+
+    def latest_date_for_vehicle(self, vehicle_no: str) -> str | None:
+        dates = self.dates_for_vehicle(vehicle_no)
+        return dates[0]["delivery_date"] if dates else None
+
+    def get_public_record(self, delivery_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            record = self._find_record_unlocked(delivery_id)
+            return self._public_record(record) if record else None
+
+    def update_photo(self, delivery_id: str, status: str, photo_data_url: str) -> dict[str, Any]:
+        if status not in STATUS_LABELS:
+            raise ValueError("達交狀態不正確")
+
+        with self._lock:
+            data = self._read_data_unlocked()
+            record = self._find_record_unlocked(delivery_id, data)
+            if not record:
+                raise KeyError("找不到出貨單")
+            if record.get("deleted_at"):
+                raise ValueError("刪除區的出貨單不可更新照片")
+
+            old_photo_path = record.get("photo_path")
+            new_photo_path = self._save_photo_unlocked(record, status, photo_data_url)
+            now = datetime.now().isoformat(timespec="seconds")
+            record["status"] = status
+            record["photo_path"] = str(new_photo_path)
+            record["photo_updated_at"] = now
+            record["updated_at"] = now
+            self._remove_old_photo_unlocked(old_photo_path, str(new_photo_path))
+            self._write_data_unlocked(data)
+            return self._public_record(record)
+
+    def list_admin_deliveries(
+        self,
+        delivery_date: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        company: str | None = None,
+        driver: str | None = None,
+        deleted: bool = False,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            records = []
+            for record in self._read_data_unlocked().get("deliveries", []):
+                if bool(record.get("deleted_at")) != deleted:
+                    continue
+                if delivery_date and not self._matches_date(record, delivery_date):
+                    continue
+                if not delivery_date and not self._matches_date_range(record, start_date, end_date):
+                    continue
+                if company and record.get("company") != company:
+                    continue
+                if driver and record.get("driver") != driver:
+                    continue
+                records.append(self._public_record(record))
+
+        return sorted(records, key=lambda item: (item["delivery_date"], item["company"], item["driver"], item["invoice_no"]))
+
+    def archive_photos(self, delivery_date: str) -> list[dict[str, Any]]:
+        date_folder = date_to_folder(delivery_date)
+        source_root = self.photo_root / date_folder
+        self.archive_root.mkdir(parents=True, exist_ok=True)
+        archives: list[dict[str, Any]] = []
+
+        if not source_root.exists():
+            return archives
+
+        company_photos: dict[str, list[Path]] = {}
+        for child in sorted(path for path in source_root.iterdir() if path.is_dir()):
+            if child.name in STATUS_LABELS.values():
+                for company_dir in sorted(path for path in child.iterdir() if path.is_dir()):
+                    company_photos.setdefault(company_dir.name, []).extend(list_photo_files(company_dir))
+            else:
+                company_photos.setdefault(child.name, []).extend(list_photo_files(child))
+
+        for company_name, photos in sorted(company_photos.items()):
+            if not photos:
+                continue
+
+            zip_name = safe_path_part(f"{date_folder}_{company_name}") + ".zip"
+            zip_path = self.archive_root / zip_name
+            used_names: set[str] = set()
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+                for photo in photos:
+                    arcname = unique_archive_name(photo.name, used_names)
+                    archive.write(photo, arcname=arcname)
+
+            archives.append({
+                "name": zip_name,
+                "company": company_name,
+                "date_folder": date_folder,
+                "size": zip_path.stat().st_size,
+            })
+
+        return archives
+
+    def archive_path_for(self, filename: str) -> Path | None:
+        safe_name = safe_path_part(filename)
+        if not safe_name.lower().endswith(".zip"):
+            return None
+        path = self.archive_root / safe_name
+        try:
+            resolved = path.resolve()
+            root = self.archive_root.resolve()
+            if root != resolved.parent:
+                return None
+        except OSError:
+            return None
+        return path if path.exists() else None
+
+    def filter_options(self) -> dict[str, list[str]]:
+        with self._lock:
+            active = [record for record in self._read_data_unlocked().get("deliveries", []) if not record.get("deleted_at")]
+        return {
+            "dates": sorted({record.get("delivery_date", "") for record in active if record.get("delivery_date")}, reverse=True),
+            "companies": sorted({record.get("company", "") for record in active if record.get("company")}),
+            "drivers": sorted({record.get("driver", "") for record in active if record.get("driver")}),
+        }
+
+    def delete_delivery(self, delivery_id: str, username: str) -> dict[str, Any]:
+        with self._lock:
+            data = self._read_data_unlocked()
+            record = self._find_record_unlocked(delivery_id, data)
+            if not record:
+                raise KeyError("找不到出貨單")
+
+            if record.get("status"):
+                record["deleted_at"] = datetime.now().isoformat(timespec="seconds")
+                record["deleted_by"] = username
+                record["updated_at"] = record["deleted_at"]
+                self._write_data_unlocked(data)
+                return {"mode": "archived", "delivery": self._public_record(record)}
+
+            data["deliveries"] = [
+                item
+                for item in data.get("deliveries", [])
+                if item.get("id") != delivery_id
+            ]
+            self._write_data_unlocked(data)
+            return {"mode": "permanent"}
+
+    def permanently_delete_delivery(self, delivery_id: str) -> None:
+        with self._lock:
+            data = self._read_data_unlocked()
+            record = self._find_record_unlocked(delivery_id, data)
+            if not record:
+                raise KeyError("找不到出貨單")
+            if not record.get("deleted_at"):
+                raise ValueError("只能永久刪除刪除區內的出貨單")
+
+            photo_path = record.get("photo_path")
+            data["deliveries"] = [
+                item
+                for item in data.get("deliveries", [])
+                if item.get("id") != delivery_id
+            ]
+            self._write_data_unlocked(data)
+            self._remove_old_photo_unlocked(photo_path, "")
+
+    def photo_path_for(self, delivery_id: str) -> Path | None:
+        with self._lock:
+            record = self._find_record_unlocked(delivery_id)
+            if not record or not record.get("photo_path"):
+                return None
+            path = Path(record["photo_path"])
+            return path if path.exists() else None
+
+    def _read_data_unlocked(self) -> dict[str, Any]:
+        if not self.data_file.exists():
+            return {"deliveries": []}
+        with self.data_file.open("r", encoding="utf-8") as file:
+            return json.load(file)
+
+    def _write_data_unlocked(self, data: dict[str, Any]) -> None:
+        temp_path = self.data_file.with_suffix(".tmp")
+        with temp_path.open("w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=2)
+        temp_path.replace(self.data_file)
+
+    def _find_record_unlocked(self, delivery_id: str, data: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        data = data or self._read_data_unlocked()
+        for record in data.get("deliveries", []):
+            if record.get("id") == delivery_id:
+                return record
+        return None
+
+    def _public_record(self, record: dict[str, Any]) -> dict[str, Any]:
+        status = record.get("status")
+        return {
+            "id": record["id"],
+            "seq": record["seq"],
+            "vehicle_no": record["vehicle_no"],
+            "driver": record["driver"],
+            "delivery_date": record["delivery_date"],
+            "date_folder": record["date_folder"],
+            "customer": record["customer"],
+            "company": record["company"],
+            "invoice_no": record["invoice_no"],
+            "status": status,
+            "status_label": STATUS_LABELS.get(status, "未達交"),
+            "has_photo": bool(record.get("photo_path")),
+            "photo_updated_at": record.get("photo_updated_at"),
+            "updated_at": record.get("updated_at"),
+            "deleted_at": record.get("deleted_at"),
+            "deleted_by": record.get("deleted_by"),
+        }
+
+    def _matches_vehicle_date(self, record: dict[str, Any], vehicle_key: str, delivery_date: str | None) -> bool:
+        if record.get("vehicle_no_normalized") != vehicle_key:
+            return False
+        if not delivery_date:
+            return True
+
+        normalized_date = normalize_delivery_date(delivery_date)
+        return record.get("delivery_date") == normalized_date or record.get("date_folder") == delivery_date
+
+    def _matches_date(self, record: dict[str, Any], delivery_date: str) -> bool:
+        normalized_date = normalize_delivery_date(delivery_date)
+        return record.get("delivery_date") == normalized_date or record.get("date_folder") == delivery_date
+
+    def _matches_date_range(self, record: dict[str, Any], start_date: str | None, end_date: str | None) -> bool:
+        delivery_date = record.get("delivery_date", "")
+        normalized_start = normalize_delivery_date(start_date or "")
+        normalized_end = normalize_delivery_date(end_date or "")
+        if normalized_start and delivery_date < normalized_start:
+            return False
+        if normalized_end and delivery_date > normalized_end:
+            return False
+        return True
+
+    def _same_imported_values(self, existing: dict[str, Any], imported: dict[str, Any]) -> bool:
+        fields = (
+            "id",
+            "sheet",
+            "row",
+            "seq",
+            "vehicle_no",
+            "vehicle_no_normalized",
+            "driver",
+            "delivery_date",
+            "date_folder",
+            "customer",
+            "company",
+            "invoice_no",
+        )
+        return all(existing.get(field) == imported.get(field) for field in fields)
+
+    def _save_photo_unlocked(self, record: dict[str, Any], status: str, photo_data_url: str) -> Path:
+        image_bytes = decode_image_data_url(photo_data_url)
+        company = safe_path_part(record["company"])
+        invoice = safe_path_part(record["invoice_no"])
+        suffix = "_異常" if status == "abnormal" else ""
+        folder = self.photo_root / record["date_folder"] / company
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{invoice}{suffix}.JPG"
+        with path.open("wb") as file:
+            file.write(image_bytes)
+        return path
+
+    def _remove_old_photo_unlocked(self, old_path: str | None, new_path: str) -> None:
+        if not old_path or old_path == new_path:
+            return
+
+        old = Path(old_path)
+        try:
+            old_resolved = old.resolve()
+            root_resolved = self.photo_root.resolve()
+            if root_resolved in old_resolved.parents and old.exists():
+                old.unlink()
+        except OSError:
+            return
+
+
+def decode_image_data_url(photo_data_url: str) -> bytes:
+    match = re.match(r"^data:image/(?:jpeg|jpg);base64,(.+)$", photo_data_url, re.IGNORECASE | re.DOTALL)
+    if not match:
+        raise ValueError("照片格式必須是 JPEG")
+    return base64.b64decode(match.group(1), validate=True)
+
+
+def safe_path_part(value: str) -> str:
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value).strip(" .")
+    return text or "_"
+
+
+def normalize_delivery_date(value: str) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"\d{8}", text):
+        return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
+    return text
+
+
+def date_to_folder(value: str) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"\d{8}", text):
+        return text
+    normalized = normalize_delivery_date(text)
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
+        return normalized.replace("-", "")
+    raise ValueError("日期格式不正確")
+
+
+def list_photo_files(folder: Path) -> list[Path]:
+    return [
+        path
+        for path in sorted(folder.rglob("*"))
+        if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg"}
+    ]
+
+
+def unique_archive_name(filename: str, used_names: set[str]) -> str:
+    if filename not in used_names:
+        used_names.add(filename)
+        return filename
+
+    stem = Path(filename).stem
+    suffix = Path(filename).suffix
+    index = 2
+    while True:
+        candidate = f"{stem}_{index}{suffix}"
+        if candidate not in used_names:
+            used_names.add(candidate)
+            return candidate
+        index += 1

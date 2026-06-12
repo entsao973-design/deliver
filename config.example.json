@@ -1,0 +1,35 @@
+{
+  "excel_path": "C:\\Users\\duncan.DUNCAN-PC\\Desktop\\溫控車配送紀錄 - 2026.06.10北區.中一.xlsm",
+  "storage_backend": "sqlserver",
+  "database": {
+    "type": "sqlserver",
+    "server": "192.168.0.5",
+    "database": "DeliveryPhotoArchive",
+    "username": "YOUR_SQL_LOGIN",
+    "password": "YOUR_SQL_PASSWORD",
+    "driver": "ODBC Driver 17 for SQL Server",
+    "encrypt": true,
+    "trust_server_certificate": true,
+    "create_database": true,
+    "timeout": 5
+  },
+  "data_file": "data\\deliveries.json",
+  "user_file": "data\\users.json",
+  "upload_dir": "data\\uploads",
+  "archive_root": "data\\archives",
+  "photo_root": "storage\\photos",
+  "host": "0.0.0.0",
+  "port": 8000,
+  "users": [
+    {
+      "username": "driver",
+      "password": "1234",
+      "role": "driver"
+    },
+    {
+      "username": "admin",
+      "password": "admin123",
+      "role": "admin"
+    }
+  ]
+}

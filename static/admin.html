@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>配送管理後台</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">管理環境</p>
+          <h1>配送管理後台</h1>
+        </div>
+        <button id="adminLogout" class="ghost-button" type="button">登出</button>
+      </header>
+
+      <nav class="admin-tabs" aria-label="管理選單">
+        <button class="tab-button active" data-view="deliveries" type="button">配送狀態</button>
+        <button class="tab-button" data-view="deleted" type="button">刪除區</button>
+        <button class="tab-button" data-view="upload" type="button">匯入 Excel</button>
+        <button class="tab-button" data-view="archive" type="button">封存照片</button>
+        <button class="tab-button" data-view="users" type="button">帳號管理</button>
+      </nav>
+
+      <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
+
+      <section id="deliveriesView" class="admin-view">
+        <div class="filter-grid">
+          <label>
+            <span>開始日期</span>
+            <input id="filterStartDate" type="date" />
+          </label>
+          <label>
+            <span>結束日期</span>
+            <input id="filterEndDate" type="date" />
+          </label>
+          <label>
+            <span>公司名稱</span>
+            <select id="filterCompany"></select>
+          </label>
+          <label>
+            <span>物流士</span>
+            <select id="filterDriver"></select>
+          </label>
+          <button id="applyFilters" class="secondary-button" type="button">查詢</button>
+        </div>
+        <section id="adminDeliveryList" class="admin-list"></section>
+      </section>
+
+      <section id="deletedView" class="admin-view" hidden>
+        <div class="filter-grid">
+          <label>
+            <span>開始日期</span>
+            <input id="deletedFilterStartDate" type="date" />
+          </label>
+          <label>
+            <span>結束日期</span>
+            <input id="deletedFilterEndDate" type="date" />
+          </label>
+          <label>
+            <span>公司名稱</span>
+            <select id="deletedFilterCompany"></select>
+          </label>
+          <label>
+            <span>物流士</span>
+            <select id="deletedFilterDriver"></select>
+          </label>
+          <button id="applyDeletedFilters" class="secondary-button" type="button">查詢</button>
+        </div>
+        <section id="deletedDeliveryList" class="admin-list deleted-list"></section>
+      </section>
+
+      <section id="uploadView" class="admin-view" hidden>
+        <div class="admin-panel">
+          <h2>上傳配送 Excel</h2>
+          <p class="subtle">成功匯入後，暫存的 Excel 檔會自動刪除。</p>
+          <div id="dropZone" class="drop-zone">
+            <strong>拖放 Excel 檔到這裡</strong>
+            <span>或點下方選取多個檔案</span>
+          </div>
+          <input id="excelFile" type="file" accept=".xlsm,.xlsx" multiple />
+          <button id="uploadExcel" class="primary-button" type="button">上傳並匯入</button>
+          <pre id="importSummary" class="summary-box"></pre>
+        </div>
+      </section>
+
+      <section id="archiveView" class="admin-view" hidden>
+        <div class="admin-panel">
+          <h2>封存照片</h2>
+          <label>
+            <span>封存日期</span>
+            <input id="archiveDate" type="date" />
+          </label>
+          <button id="archivePhotos" class="primary-button" type="button">開始封存</button>
+          <section id="archiveList" class="admin-list"></section>
+          <button id="downloadArchives" class="secondary-button" type="button">下載勾選 ZIP</button>
+        </div>
+      </section>
+
+      <section id="usersView" class="admin-view" hidden>
+        <div class="admin-panel">
+          <h2>帳號密碼管理</h2>
+          <div class="user-form">
+            <label>
+              <span>使用者名稱</span>
+              <input id="userUsername" autocomplete="off" />
+            </label>
+            <label>
+              <span>角色</span>
+              <select id="userRole">
+                <option value="driver">司機</option>
+                <option value="admin">管理人員</option>
+              </select>
+            </label>
+            <label>
+              <span>新密碼</span>
+              <input id="userPassword" type="password" autocomplete="new-password" />
+            </label>
+            <label class="toggle-row user-active">
+              <input id="userActive" type="checkbox" checked />
+              <span>啟用</span>
+            </label>
+            <button id="saveUser" class="primary-button" type="button">儲存帳號</button>
+          </div>
+        </div>
+        <section id="userList" class="admin-list"></section>
+      </section>
+    </main>
+
+    <dialog id="adminPhotoDialog" class="photo-dialog">
+      <div class="dialog-header">
+        <strong id="adminPhotoTitle"></strong>
+        <button id="closeAdminPhoto" class="ghost-button" type="button">關閉</button>
+      </div>
+      <div class="photo-tools">
+        <button id="adminPhotoZoomOut" class="secondary-button" type="button">縮小</button>
+        <button id="adminPhotoZoomReset" class="secondary-button" type="button">重設</button>
+        <button id="adminPhotoZoomIn" class="secondary-button" type="button">放大</button>
+      </div>
+      <div id="adminPhotoViewport" class="photo-viewport">
+        <img id="adminPhotoPreview" alt="達交照片" />
+      </div>
+    </dialog>
+
+    <script src="/static/photo-viewer.js"></script>
+    <script src="/static/admin.js" defer></script>
+  </body>
+</html>

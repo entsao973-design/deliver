@@ -1,0 +1,2 @@
+"""Delivery photo archive app."""
+

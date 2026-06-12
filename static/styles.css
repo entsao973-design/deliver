@@ -1,0 +1,398 @@
+:root {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #17202a;
+  --muted: #64707d;
+  --border: #d9dee5;
+  --primary: #146c63;
+  --primary-dark: #0f514a;
+  --normal: #16794d;
+  --abnormal: #b54708;
+  --danger: #ba1a1a;
+  --soft-green: #e9f6f1;
+  --soft-amber: #fff4df;
+  --shadow: 0 10px 28px rgba(18, 32, 46, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  font-weight: 700;
+}
+
+button:disabled {
+  opacity: 0.55;
+}
+
+.app-shell {
+  width: min(100%, 760px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.screen {
+  min-height: calc(100vh - 36px);
+}
+
+.login-screen {
+  display: grid;
+  align-content: center;
+  gap: 22px;
+}
+
+.brand-block h1,
+.top-bar h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.brand-block p,
+.subtle,
+.eyebrow {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.panel,
+.delivery-card,
+.summary-strip {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+input:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(20, 108, 99, 0.16);
+}
+
+select:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(20, 108, 99, 0.16);
+}
+
+.primary-button {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.primary-button:active {
+  background: var(--primary-dark);
+}
+
+.secondary-button {
+  background: #e8edf2;
+  color: var(--text);
+}
+
+.ghost-button {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+}
+
+.error-text,
+.message {
+  min-height: 22px;
+  margin: 0;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.message {
+  margin: 12px 0;
+}
+
+.top-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 14px;
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+}
+
+.date-panel {
+  margin-bottom: 12px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.summary-strip strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.summary-strip span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.toggle-row {
+  grid-auto-flow: column;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  color: var(--text);
+}
+
+.toggle-row input {
+  width: 22px;
+  min-height: 22px;
+}
+
+.remember-row {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  color: var(--text);
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.delivery-list {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 32px;
+}
+
+.delivery-card {
+  padding: 14px;
+}
+
+.card-main {
+  display: grid;
+  gap: 7px;
+}
+
+.card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.customer {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  background: #7a8794;
+}
+
+.badge.normal {
+  background: var(--normal);
+}
+
+.badge.abnormal {
+  background: var(--abnormal);
+}
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.invoice {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.actions .wide {
+  grid-column: 1 / -1;
+}
+
+.normal-button {
+  background: var(--soft-green);
+  color: var(--normal);
+}
+
+.abnormal-button {
+  background: var(--soft-amber);
+  color: var(--abnormal);
+}
+
+.photo-dialog {
+  width: min(96vw, 1100px);
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26);
+}
+
+.photo-dialog::backdrop {
+  background: rgba(10, 18, 28, 0.54);
+}
+
+.dialog-header,
+.dialog-actions,
+.photo-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+}
+
+.dialog-actions {
+  justify-content: stretch;
+}
+
+.dialog-actions button {
+  width: 100%;
+}
+
+.photo-tools {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding-top: 0;
+}
+
+.photo-tools button {
+  min-height: 38px;
+}
+
+.photo-viewport {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: min(72vh, 760px);
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
+  background: #111820;
+  cursor: default;
+}
+
+.photo-dialog img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: transform 120ms ease;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.photo-dialog img.viewer-ready {
+  max-width: none;
+  max-height: none;
+}
+
+.photo-viewport.is-gesturing img {
+  transition: none;
+}
+
+.photo-dialog img.zoomed {
+  cursor: grab;
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .screen {
+    min-height: calc(100vh - 24px);
+  }
+
+  .summary-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toggle-row {
+    grid-column: 1 / -1;
+  }
+
+  .top-bar {
+    align-items: stretch;
+  }
+
+  .top-bar .ghost-button {
+    padding: 0 12px;
+  }
+}

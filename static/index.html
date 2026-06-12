@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>配送拍照存檔系統</title>
+    <link rel="manifest" href="/static/manifest.json" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="loginScreen" class="screen login-screen">
+        <div class="brand-block">
+          <h1>配送拍照存檔</h1>
+          <p>司機登入</p>
+        </div>
+
+        <form id="loginForm" class="panel">
+          <label>
+            <span>帳號</span>
+            <input id="username" name="username" autocomplete="username" required />
+          </label>
+          <label>
+            <span>密碼</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <label>
+            <span>車號（司機必填）</span>
+            <input id="vehicleNo" name="vehicleNo" autocomplete="off" />
+          </label>
+          <label class="toggle-row remember-row">
+            <input id="rememberLogin" type="checkbox" />
+            <span>記住帳號與車號</span>
+          </label>
+          <button class="primary-button" type="submit">登入</button>
+          <p id="loginError" class="error-text" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section id="deliveryScreen" class="screen delivery-screen" hidden>
+        <header class="top-bar">
+          <div>
+            <p id="routeDate" class="eyebrow"></p>
+            <h1 id="routeTitle"></h1>
+            <p id="driverName" class="subtle"></p>
+          </div>
+          <button id="logoutButton" class="ghost-button" type="button">登出</button>
+        </header>
+
+        <section id="datePanel" class="date-panel" hidden>
+          <label>
+            <span>配送日期</span>
+            <select id="dateSelect"></select>
+          </label>
+        </section>
+
+        <section class="summary-strip">
+          <div>
+            <strong id="openCount">0</strong>
+            <span>未達交</span>
+          </div>
+          <div>
+            <strong id="doneCount">0</strong>
+            <span>已達交</span>
+          </div>
+          <label class="toggle-row">
+            <input id="hideDoneToggle" type="checkbox" checked />
+            <span>隱藏已達交</span>
+          </label>
+        </section>
+
+        <div class="toolbar">
+          <button id="refreshButton" class="secondary-button" type="button">重新整理</button>
+          <button id="reloadButton" class="secondary-button" type="button">重新匯入</button>
+        </div>
+
+        <div id="message" class="message" role="status" aria-live="polite"></div>
+        <section id="deliveryList" class="delivery-list"></section>
+      </section>
+    </main>
+
+    <input id="photoInput" type="file" accept="image/*" capture="environment" hidden />
+
+    <dialog id="photoDialog" class="photo-dialog">
+      <div class="dialog-header">
+        <strong id="photoTitle"></strong>
+        <button id="closePhotoButton" class="ghost-button" type="button">關閉</button>
+      </div>
+      <div class="photo-tools">
+        <button id="photoZoomOut" class="secondary-button" type="button">縮小</button>
+        <button id="photoZoomReset" class="secondary-button" type="button">重設</button>
+        <button id="photoZoomIn" class="secondary-button" type="button">放大</button>
+      </div>
+      <div id="photoViewport" class="photo-viewport">
+        <img id="photoPreview" alt="達交照片" />
+      </div>
+      <div class="dialog-actions">
+        <button id="retakeButton" class="primary-button" type="button">再次拍照</button>
+      </div>
+    </dialog>
+
+    <script src="/static/photo-viewer.js"></script>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
