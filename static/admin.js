@@ -188,7 +188,7 @@ function renderDeliveries(container, deliveries, deleted) {
 
     const actions = card.querySelector(".admin-actions");
     if (delivery.has_photo) {
-      actions.append(makeAdminButton("觀看照片", "secondary-button", () => openAdminPhoto(delivery)));
+      actions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
     }
     if (deleted) {
       actions.append(makeAdminButton("永久刪除", "danger-button", () => permanentlyDelete(delivery)));

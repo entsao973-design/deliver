@@ -102,7 +102,8 @@ class SqlServerBase:
         self.password = require_config(database_config, "password")
         self.timeout = int(database_config.get("timeout", 5))
         self._schema_lock = threading.Lock()
-        self._initialize_database()
+        if database_config.get("initialize_schema", True):
+            self._initialize_database()
 
     def _initialize_database(self) -> None:
         with self._schema_lock:
@@ -279,13 +280,13 @@ class SqlServerRepository(SqlServerBase):
         self.photo_root.mkdir(parents=True, exist_ok=True)
         self.archive_root.mkdir(parents=True, exist_ok=True)
         super().__init__(database_config)
-        if self.excel_path and self.excel_path.exists() and self._count_deliveries() == 0:
+        if self.excel_path and self.excel_path.is_file() and self._count_deliveries() == 0:
             self.reload_from_excel()
 
     def reload_from_excel(self) -> None:
         if not self.excel_path:
             raise ValueError("No default Excel file is configured. Upload Excel from the admin page.")
-        if not self.excel_path.exists():
+        if not self.excel_path.is_file():
             raise ValueError(f"Default Excel file not found: {self.excel_path}")
         self.import_excel_file(self.excel_path)
 

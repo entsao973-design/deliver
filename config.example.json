@@ -11,6 +11,7 @@
     "encrypt": true,
     "trust_server_certificate": true,
     "create_database": true,
+    "initialize_schema": true,
     "timeout": 5
   },
   "data_file": "data\\deliveries.json",

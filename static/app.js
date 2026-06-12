@@ -240,7 +240,7 @@ function renderCard(delivery) {
 
   const actions = card.querySelector(".actions");
   if (delivery.has_photo) {
-    actions.append(makeButton("查看照片", "secondary-button wide", () => openPhoto(delivery)));
+    actions.append(makeButton("檢視照片", "secondary-button wide", () => openPhoto(delivery)));
     actions.append(makeButton("重新拍照", "secondary-button", () => startCapture(delivery, delivery.status || "normal")));
     actions.append(
       makeButton(delivery.status === "normal" ? "改異常" : "改正常", delivery.status === "normal" ? "abnormal-button" : "normal-button", () =>
