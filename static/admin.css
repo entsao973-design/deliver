@@ -1,19 +1,32 @@
 .admin-shell {
   width: min(100%, 1120px);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   margin: 0 auto;
-  padding: 18px;
-}
-
-.admin-header {
+  padding: 8px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.admin-header h1,
+#adminLoginScreen {
+  padding-top: 0;
+}
+
+#adminLoginScreen .login-screen {
+  align-content: start;
+  padding-top: 0;
+}
+
+.admin-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  flex: 0 0 auto;
+  padding-bottom: 4px;
+}
+
 .admin-panel h2 {
   margin: 0;
   letter-spacing: 0;
@@ -21,9 +34,14 @@
 
 .admin-tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+
+.admin-tabs button {
+  min-height: 40px;
+  padding: 0 10px;
 }
 
 .tab-button {
@@ -36,23 +54,49 @@
   color: #ffffff;
 }
 
+.admin-logout-button {
+  min-height: 40px;
+  padding: 0 10px;
+}
+
 .admin-view {
   display: grid;
-  gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
+.filter-grid label {
+  gap: 4px;
+  font-size: 13px;
+}
+
+.filter-grid input,
+.filter-grid select {
+  min-height: 38px;
+  padding: 0 10px;
+}
+
 .filter-grid button {
   align-self: end;
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+#adminMessage:empty {
+  display: none;
 }
 
 .admin-panel,
@@ -71,14 +115,17 @@
 
 .admin-list {
   display: grid;
-  gap: 10px;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 18px;
 }
 
 .admin-card {
   display: grid;
   grid-template-columns: 1.2fr 1fr auto;
   gap: 14px;
-  padding: 14px;
+  padding: 4px 14px;
   align-items: center;
 }
 
@@ -104,6 +151,16 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.admin-inline-photo {
+  grid-column: 1 / -1;
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #111820;
 }
 
 .danger-button {
@@ -155,6 +212,13 @@
 
 .user-active {
   align-self: center;
+}
+
+#uploadView,
+#archiveView,
+#usersView {
+  overflow-y: auto;
+  padding-bottom: 18px;
 }
 
 @media (max-width: 760px) {

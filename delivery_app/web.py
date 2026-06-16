@@ -17,6 +17,13 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "static"
 
 
+class RequestError(Exception):
+    def __init__(self, status: HTTPStatus, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
 def create_repository(config: dict):
     if is_sqlserver_backend(config):
         from .sqlserver_store import SqlServerRepository
@@ -67,13 +74,19 @@ class DeliveryServer:
 
             def do_GET(self) -> None:
                 parsed = urlparse(self.path)
-                if parsed.path == "/":
+                if parsed.path in {"/", "/driver"}:
                     self._serve_file(STATIC_DIR / "index.html")
                 elif parsed.path == "/admin":
                     self._serve_file(STATIC_DIR / "admin.html")
+                elif parsed.path == "/manifest.webmanifest":
+                    self._serve_static_file(STATIC_DIR / "manifest.json", "application/manifest+json; charset=utf-8")
+                elif parsed.path == "/service-worker.js":
+                    self._serve_static_file(STATIC_DIR / "service-worker.js", "application/javascript; charset=utf-8")
                 elif parsed.path.startswith("/static/"):
                     relative = unquote(parsed.path.removeprefix("/static/"))
                     self._serve_file(STATIC_DIR / relative)
+                elif parsed.path == "/api/vehicles":
+                    self._handle_vehicles()
                 elif parsed.path == "/api/deliveries":
                     self._handle_deliveries(parsed)
                 elif parsed.path.startswith("/api/deliveries/") and parsed.path.endswith("/photo"):
@@ -92,6 +105,18 @@ class DeliveryServer:
                     self._json_error(HTTPStatus.NOT_FOUND, "找不到頁面")
 
             def do_POST(self) -> None:
+                try:
+                    self._route_post()
+                except RequestError as exc:
+                    self._safe_json_error(exc.status, exc.message)
+                except ValueError as exc:
+                    self._safe_json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+                except Exception:
+                    self._safe_json_error(HTTPStatus.INTERNAL_SERVER_ERROR, "伺服器處理失敗，請稍後再試")
+
+            def _route_post(self) -> None:
                 parsed = urlparse(self.path)
                 if parsed.path == "/api/login":
                     self._handle_login()
@@ -163,6 +188,9 @@ class DeliveryServer:
                     "counts": counts,
                 })
 
+            def _handle_vehicles(self) -> None:
+                self._send_json(app.repo.vehicles_for_latest_date())
+
             def _handle_deliveries(self, parsed) -> None:
                 session = self._session_from_request(parsed)
                 if not session:
@@ -194,6 +222,7 @@ class DeliveryServer:
                         delivery_id,
                         str(body.get("status", "")),
                         str(body.get("photo_data", "")),
+                        captured_at=str(body.get("captured_at", "")).strip() or None,
                     )
                 except KeyError as exc:
                     self._json_error(HTTPStatus.NOT_FOUND, str(exc))
@@ -240,7 +269,10 @@ class DeliveryServer:
                 self._send_json({"ok": True})
 
             def _handle_admin_import(self) -> None:
-                body = self._read_json(max_bytes=32 * 1024 * 1024)
+                body = self._read_json(
+                    max_bytes=32 * 1024 * 1024,
+                    too_large_message="Excel 檔案太大，上傳失敗，請縮小檔案後再試",
+                )
                 if not self._admin_from_body(body):
                     return
 
@@ -282,7 +314,12 @@ class DeliveryServer:
             def _handle_admin_options(self, parsed) -> None:
                 if not self._admin_from_request(parsed):
                     return
-                self._send_json(app.repo.filter_options())
+                query = parse_qs(parsed.query)
+                self._send_json(app.repo.filter_options(
+                    start_date=query.get("start_date", [""])[0] or None,
+                    end_date=query.get("end_date", [""])[0] or None,
+                    deleted=query.get("deleted", ["0"])[0] == "1",
+                ))
 
             def _handle_admin_delete(self, delivery_id: str) -> None:
                 body = self._read_json()
@@ -405,13 +442,23 @@ class DeliveryServer:
                     return None
                 return session
 
-            def _read_json(self, max_bytes: int = 1024 * 1024) -> dict:
-                length = int(self.headers.get("Content-Length", "0"))
+            def _read_json(
+                self,
+                max_bytes: int = 1024 * 1024,
+                too_large_message: str = "資料太大",
+            ) -> dict:
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                except ValueError as exc:
+                    raise RequestError(HTTPStatus.BAD_REQUEST, "請求內容長度不正確") from exc
                 if length > max_bytes:
-                    self._json_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "資料太大")
-                    return {}
+                    self.close_connection = True
+                    raise RequestError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, too_large_message)
                 raw = self.rfile.read(length)
-                return json.loads(raw.decode("utf-8") or "{}")
+                try:
+                    return json.loads(raw.decode("utf-8") or "{}")
+                except json.JSONDecodeError as exc:
+                    raise RequestError(HTTPStatus.BAD_REQUEST, "請求內容不是有效 JSON") from exc
 
             def _send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
                 content = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -424,7 +471,17 @@ class DeliveryServer:
             def _json_error(self, status: HTTPStatus, message: str) -> None:
                 self._send_json({"error": message}, status)
 
+            def _safe_json_error(self, status: HTTPStatus, message: str) -> None:
+                try:
+                    self._json_error(status, message)
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+
             def _serve_file(self, path: Path) -> None:
+                mime_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+                self._serve_static_file(path, mime_type)
+
+            def _serve_static_file(self, path: Path, mime_type: str) -> None:
                 try:
                     resolved = path.resolve()
                     static_root = STATIC_DIR.resolve()
@@ -435,7 +492,6 @@ class DeliveryServer:
                     self._json_error(HTTPStatus.NOT_FOUND, "找不到檔案")
                     return
 
-                mime_type = mimetypes.guess_type(str(resolved))[0] or "application/octet-stream"
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", mime_type)
                 self.send_header("Cache-Control", "no-store")
@@ -466,7 +522,7 @@ def safe_upload_name(filename: str) -> str:
     name = Path(filename).name
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name).strip(" .")
     if not name:
-        raise ValueError("檔名不正確")
+        raise ValueError("Excel 檔名不可空白")
     return name
 
 

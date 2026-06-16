@@ -4,9 +4,19 @@ const adminState = {
   options: { dates: [], companies: [], drivers: [] },
   uploadFiles: [],
   archives: [],
+  showAllPhotos: false,
 };
 
 const adminEls = {
+  loginScreen: document.querySelector("#adminLoginScreen"),
+  app: document.querySelector("#adminApp"),
+  loginForm: document.querySelector("#adminLoginForm"),
+  loginUsername: document.querySelector("#adminLoginUsername"),
+  loginPassword: document.querySelector("#adminLoginPassword"),
+  togglePassword: document.querySelector("#adminTogglePassword"),
+  passwordEyeOpen: document.querySelector("#adminPasswordEyeOpen"),
+  passwordEyeClosed: document.querySelector("#adminPasswordEyeClosed"),
+  loginError: document.querySelector("#adminLoginError"),
   logout: document.querySelector("#adminLogout"),
   message: document.querySelector("#adminMessage"),
   tabs: document.querySelectorAll(".tab-button"),
@@ -27,6 +37,7 @@ const adminEls = {
   deletedFilterDriver: document.querySelector("#deletedFilterDriver"),
   applyFilters: document.querySelector("#applyFilters"),
   applyDeletedFilters: document.querySelector("#applyDeletedFilters"),
+  toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
   deliveryList: document.querySelector("#adminDeliveryList"),
   deletedList: document.querySelector("#deletedDeliveryList"),
   dropZone: document.querySelector("#dropZone"),
@@ -49,7 +60,6 @@ const adminEls = {
   photoViewport: document.querySelector("#adminPhotoViewport"),
   photoZoomIn: document.querySelector("#adminPhotoZoomIn"),
   photoZoomOut: document.querySelector("#adminPhotoZoomOut"),
-  photoZoomReset: document.querySelector("#adminPhotoZoomReset"),
   closePhoto: document.querySelector("#closeAdminPhoto"),
 };
 
@@ -59,27 +69,46 @@ createPhotoViewer({
   viewport: adminEls.photoViewport,
   zoomIn: adminEls.photoZoomIn,
   zoomOut: adminEls.photoZoomOut,
-  reset: adminEls.photoZoomReset,
 });
 
 adminEls.logout.addEventListener("click", () => {
   localStorage.removeItem("delivery_token");
   localStorage.removeItem("delivery_role");
-  window.location.href = "/";
+  adminState.token = "";
+  showAdminLogin();
+});
+adminEls.loginForm.addEventListener("submit", handleAdminLogin);
+adminEls.togglePassword.addEventListener("click", () => {
+  const isVisible = adminEls.loginPassword.type === "password";
+  adminEls.loginPassword.type = isVisible ? "text" : "password";
+  adminEls.togglePassword.setAttribute("aria-label", isVisible ? "隱藏密碼" : "顯示密碼");
+  adminEls.togglePassword.setAttribute("aria-pressed", String(isVisible));
+  setAdminPasswordIconHidden(adminEls.passwordEyeOpen, isVisible);
+  setAdminPasswordIconHidden(adminEls.passwordEyeClosed, !isVisible);
 });
 
 for (const button of adminEls.tabs) {
   button.addEventListener("click", () => setView(button.dataset.view));
 }
 
-adminEls.applyFilters.addEventListener("click", () => loadDeliveries(false));
-adminEls.applyDeletedFilters.addEventListener("click", () => loadDeliveries(true));
+adminEls.applyFilters.addEventListener("click", () => applyAdminFilters(false));
+adminEls.applyDeletedFilters.addEventListener("click", () => applyAdminFilters(true));
+adminEls.toggleAllPhotos.addEventListener("click", () => {
+  adminState.showAllPhotos = !adminState.showAllPhotos;
+  updateToggleAllPhotosButton();
+  loadDeliveries(false);
+});
 adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.excelFile.files]));
 adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
 adminEls.downloadArchives.addEventListener("click", downloadSelectedArchives);
 adminEls.saveUser.addEventListener("click", saveUser);
-adminEls.closePhoto.addEventListener("click", () => adminEls.photoDialog.close());
+adminEls.closePhoto.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (adminEls.photoDialog.open) {
+    adminEls.photoDialog.close();
+  }
+});
 adminEls.dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
   adminEls.dropZone.classList.add("dragging");
@@ -93,26 +122,63 @@ adminEls.dropZone.addEventListener("drop", (event) => {
 
 async function initAdmin() {
   if (!adminState.token || localStorage.getItem("delivery_role") !== "admin") {
-    window.location.href = "/";
+    showAdminLogin();
     return;
   }
 
   try {
+    showAdminApp();
     const today = todayISO();
     adminEls.filterStartDate.value = today;
     adminEls.filterEndDate.value = today;
     adminEls.deletedFilterStartDate.value = today;
     adminEls.deletedFilterEndDate.value = today;
     adminEls.archiveDate.value = today;
+    updateToggleAllPhotosButton();
     await loadOptions();
     await loadDeliveries(false);
     await loadUsers();
   } catch (error) {
     setAdminMessage(error.message, true);
     if (error.status === 401 || error.status === 403) {
-      window.location.href = "/";
+      showAdminLogin();
     }
   }
+}
+
+async function handleAdminLogin(event) {
+  event.preventDefault();
+  adminEls.loginError.textContent = "";
+
+  try {
+    const result = await adminApi("/api/login", {
+      method: "POST",
+      body: {
+        username: adminEls.loginUsername.value.trim(),
+        password: adminEls.loginPassword.value,
+      },
+    });
+    if (result.role !== "admin") {
+      throw new Error("此帳號不是管理者");
+    }
+    adminState.token = result.token;
+    localStorage.setItem("delivery_token", result.token);
+    localStorage.setItem("delivery_role", result.role);
+    adminEls.loginPassword.value = "";
+    await initAdmin();
+  } catch (error) {
+    adminEls.loginError.textContent = error.message;
+  }
+}
+
+function showAdminLogin() {
+  adminEls.app.hidden = true;
+  adminEls.loginScreen.hidden = false;
+}
+
+function showAdminApp() {
+  adminEls.loginScreen.hidden = true;
+  adminEls.app.hidden = false;
 }
 
 function setView(view) {
@@ -134,12 +200,42 @@ function setView(view) {
   }
 }
 
-async function loadOptions() {
-  adminState.options = await adminApi(`/api/admin/options?token=${encodeURIComponent(adminState.token)}`);
-  fillSelect(adminEls.filterCompany, adminState.options.companies, "全部公司");
-  fillSelect(adminEls.deletedFilterCompany, adminState.options.companies, "全部公司");
-  fillSelect(adminEls.filterDriver, adminState.options.drivers, "全部物流士");
-  fillSelect(adminEls.deletedFilterDriver, adminState.options.drivers, "全部物流士");
+async function applyAdminFilters(deleted) {
+  await loadOptions(deleted);
+  await loadDeliveries(deleted);
+}
+
+async function loadOptions(deleted = null) {
+  if (deleted === null) {
+    await Promise.all([loadOptions(false), loadOptions(true)]);
+    return;
+  }
+
+  const startDateEl = deleted ? adminEls.deletedFilterStartDate : adminEls.filterStartDate;
+  const endDateEl = deleted ? adminEls.deletedFilterEndDate : adminEls.filterEndDate;
+  const companyEl = deleted ? adminEls.deletedFilterCompany : adminEls.filterCompany;
+  const driverEl = deleted ? adminEls.deletedFilterDriver : adminEls.filterDriver;
+
+  const options = await adminApi(AdminFilterOptions.buildAdminOptionsPath(adminState.token, {
+    deleted,
+    startDate: startDateEl.value,
+    endDate: endDateEl.value,
+  }));
+  if (!deleted) {
+    adminState.options = options;
+  }
+  fillSelect(
+    companyEl,
+    options.companies,
+    "全部公司",
+    AdminFilterOptions.preservedSelectValue(companyEl.value, options.companies),
+  );
+  fillSelect(
+    driverEl,
+    options.drivers,
+    "全部物流士",
+    AdminFilterOptions.preservedSelectValue(driverEl.value, options.drivers),
+  );
 }
 
 async function loadDeliveries(deleted) {
@@ -188,12 +284,22 @@ function renderDeliveries(container, deliveries, deleted) {
 
     const actions = card.querySelector(".admin-actions");
     if (delivery.has_photo) {
-      actions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
+      if (!AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
+        actions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
+      }
     }
     if (deleted) {
       actions.append(makeAdminButton("永久刪除", "danger-button", () => permanentlyDelete(delivery)));
     } else {
       actions.append(makeAdminButton("刪除", "danger-button", () => deleteDelivery(delivery)));
+    }
+    if (AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
+      const photo = document.createElement("img");
+      const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
+      photo.className = "admin-inline-photo";
+      photo.src = `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(adminState.token)}&t=${stamp}`;
+      photo.alt = `${delivery.invoice_no} 達交照片`;
+      card.append(photo);
     }
     container.append(card);
   }
@@ -419,7 +525,11 @@ function openAdminPhoto(delivery) {
   adminEls.photoDialog.showModal();
 }
 
-function fillSelect(select, values, placeholder) {
+function updateToggleAllPhotosButton() {
+  adminEls.toggleAllPhotos.textContent = AdminPhotoView.showAllPhotosButtonText(adminState.showAllPhotos);
+}
+
+function fillSelect(select, values, placeholder, selectedValue = "") {
   select.replaceChildren();
   const all = document.createElement("option");
   all.value = "";
@@ -431,6 +541,7 @@ function fillSelect(select, values, placeholder) {
     option.textContent = value;
     select.append(option);
   }
+  select.value = selectedValue;
 }
 
 function setUploadFiles(files) {
@@ -459,23 +570,20 @@ function readFileDataUrl(file) {
 }
 
 async function adminApi(path, options = {}) {
-  const response = await fetch(path, {
-    method: options.method || "GET",
-    headers: options.body ? { "Content-Type": "application/json" } : {},
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    const error = new Error(payload.error || "系統錯誤");
-    error.status = response.status;
-    throw error;
-  }
-  return payload;
+  return AdminApi.request(path, options);
 }
 
 function setAdminMessage(message, isError = false) {
   adminEls.message.textContent = message;
   adminEls.message.style.color = isError ? "var(--danger)" : "var(--normal)";
+}
+
+function setAdminPasswordIconHidden(icon, isHidden) {
+  if (isHidden) {
+    icon.setAttribute("hidden", "");
+    return;
+  }
+  icon.removeAttribute("hidden");
 }
 
 function todayISO() {

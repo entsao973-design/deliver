@@ -59,6 +59,22 @@ button:disabled {
   min-height: calc(100vh - 36px);
 }
 
+.delivery-screen {
+  --driver-control-panel-height: 64px;
+  height: calc(100vh - 36px);
+  height: calc(100dvh - 36px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.delivery-screen .top-bar,
+.delivery-screen .summary-strip {
+  flex: 0 0 auto;
+  height: var(--driver-control-panel-height);
+}
+
 .login-screen {
   display: grid;
   align-content: center;
@@ -112,6 +128,50 @@ select {
   background: #ffffff;
 }
 
+.password-field {
+  position: relative;
+  display: grid;
+}
+
+.password-field input {
+  padding-right: 54px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 42px;
+  min-height: 38px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+}
+
+.password-toggle:focus {
+  outline: 3px solid rgba(20, 108, 99, 0.16);
+}
+
+.eye-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vehicle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
 input:focus {
   border-color: var(--primary);
   outline: 3px solid rgba(20, 108, 99, 0.16);
@@ -162,12 +222,77 @@ select:focus {
   padding: 8px 0 14px;
 }
 
+.delivery-screen .top-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.route-info {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  min-width: 0;
+}
+
+.delivery-screen .top-bar h1 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.delivery-screen .eyebrow,
+.delivery-screen .subtle {
+  margin-top: 1px;
+  font-size: 11px;
+}
+
+.delivery-screen label {
+  gap: 2px;
+  font-size: 12px;
+}
+
+.delivery-screen button {
+  min-height: 32px;
+  padding: 0 8px;
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.delivery-screen select {
+  min-height: 32px;
+  padding: 0 8px;
+}
+
 .summary-strip {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 14px;
+}
+
+.delivery-screen .summary-strip {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 5px 6px;
+}
+
+.summary-counts {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  align-items: center;
+  align-content: center;
+  gap: 8px;
 }
 
 .date-panel {
@@ -178,15 +303,93 @@ select:focus {
   border-radius: 8px;
 }
 
+.delivery-screen .date-panel {
+  display: grid;
+  align-self: stretch;
+  align-items: center;
+  justify-self: stretch;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.delivery-screen .date-panel label {
+  gap: 2px;
+}
+
+.delivery-screen .date-panel span {
+  font-size: 10px;
+}
+
+.delivery-screen .top-bar > .ghost-button {
+  align-self: stretch;
+  justify-self: end;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
 .summary-strip strong {
   display: block;
   font-size: 28px;
   line-height: 1;
 }
 
+.delivery-screen .summary-strip strong {
+  font-size: 20px;
+}
+
 .summary-strip span {
   color: var(--muted);
   font-size: 14px;
+}
+
+.delivery-screen .summary-strip span {
+  font-size: 11px;
+}
+
+.delivery-screen .summary-strip .toggle-row {
+  white-space: nowrap;
+}
+
+.delivery-screen .summary-strip .toggle-row input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.summary-toggles {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 4px;
+}
+
+.summary-actions {
+  display: grid;
+  align-items: stretch;
+}
+
+.summary-actions button {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+#logoutButton,
+#refreshButton {
+  align-self: center;
+  height: calc(var(--driver-control-panel-height) * 0.8);
+  min-height: calc(var(--driver-control-panel-height) * 0.8);
 }
 
 .toggle-row {
@@ -214,19 +417,63 @@ select:focus {
   margin-top: 12px;
 }
 
+.delivery-screen .toolbar {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.delivery-screen .message {
+  min-height: 20px;
+  margin: 4px 0;
+}
+
+.delivery-screen .message:empty {
+  display: none;
+}
+
+.queue-status {
+  min-height: 20px;
+  margin: 4px 0 0;
+  color: var(--abnormal);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.queue-status:empty {
+  display: none;
+}
+
 .delivery-list {
   display: grid;
   gap: 10px;
   padding-bottom: 32px;
 }
 
+.delivery-screen .delivery-list {
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+}
+
 .delivery-card {
   padding: 14px;
+}
+
+.delivery-screen .delivery-card {
+  padding: 11px 12px;
 }
 
 .card-main {
   display: grid;
   gap: 7px;
+}
+
+.delivery-screen .card-main {
+  gap: 5px;
 }
 
 .card-title-row {
@@ -236,11 +483,20 @@ select:focus {
   gap: 10px;
 }
 
+.delivery-screen .card-title-row {
+  gap: 8px;
+}
+
 .customer {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.delivery-screen .customer {
+  font-size: 17px;
+  line-height: 1.28;
 }
 
 .badge {
@@ -253,6 +509,11 @@ select:focus {
   background: #7a8794;
 }
 
+.delivery-screen .badge {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .badge.normal {
   background: var(--normal);
 }
@@ -261,12 +522,22 @@ select:focus {
   background: var(--abnormal);
 }
 
+.badge.pending {
+  background: #57606a;
+}
+
 .meta-line {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   color: var(--muted);
   font-size: 15px;
+}
+
+.delivery-screen .meta-line {
+  gap: 6px 8px;
+  font-size: 14px;
+  line-height: 1.3;
 }
 
 .invoice {
@@ -281,8 +552,56 @@ select:focus {
   margin-top: 13px;
 }
 
+.delivery-screen .actions {
+  gap: 7px;
+  margin-top: 10px;
+}
+
 .actions .wide {
   grid-column: 1 / -1;
+}
+
+.inline-photo-viewport {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 280px;
+  margin-top: 10px;
+  overflow: hidden;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+  background: #111820;
+  cursor: default;
+}
+
+.inline-photo-viewport.has-zoom,
+.inline-photo-viewport.is-gesturing {
+  touch-action: none;
+}
+
+.inline-photo {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: transform 120ms ease;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.inline-photo.viewer-ready {
+  max-width: none;
+  max-height: none;
+}
+
+.inline-photo-viewport.is-gesturing .inline-photo {
+  transition: none;
+}
+
+.inline-photo.zoomed {
+  cursor: grab;
 }
 
 .normal-button {
@@ -296,29 +615,70 @@ select:focus {
 }
 
 .photo-dialog {
+  box-sizing: border-box;
   width: min(96vw, 1100px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   border: 0;
   border-radius: 8px;
   padding: 0;
+  overflow: hidden;
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26);
+}
+
+.photo-dialog:not([open]) {
+  display: none;
+}
+
+.photo-dialog[open] {
+  display: flex;
+  flex-direction: column;
 }
 
 .photo-dialog::backdrop {
   background: rgba(10, 18, 28, 0.54);
 }
 
-.dialog-header,
-.dialog-actions,
-.photo-tools {
+.dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px;
+  gap: 6px;
+  padding: 6px 14px;
+}
+
+.dialog-header strong {
+  justify-self: start;
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.dialog-header > .ghost-button,
+.dialog-close-form {
+  justify-self: end;
+}
+
+#adminPhotoDialog .dialog-header {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+}
+
+.dialog-close-form {
+  margin: 0;
+}
+
+.dialog-close-form > .ghost-button {
+  width: auto;
 }
 
 .dialog-actions {
+  display: flex;
+  align-items: center;
   justify-content: stretch;
+  padding: 14px;
 }
 
 .dialog-actions button {
@@ -326,18 +686,25 @@ select:focus {
 }
 
 .photo-tools {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  padding-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 4px;
+  min-width: 0;
 }
 
 .photo-tools button {
-  min-height: 38px;
+  min-height: 34px;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 .photo-viewport {
   display: grid;
+  flex: 1 1 auto;
   place-items: center;
+  min-height: 0;
   width: 100%;
   height: min(72vh, 760px);
   overflow: hidden;
@@ -345,6 +712,17 @@ select:focus {
   overscroll-behavior: contain;
   background: #111820;
   cursor: default;
+}
+
+#adminPhotoDialog {
+  height: 90vh;
+  height: 90dvh;
+  max-height: 90vh;
+  max-height: 90dvh;
+}
+
+#adminPhotoDialog .photo-viewport {
+  height: auto;
 }
 
 .photo-dialog img {
@@ -380,12 +758,9 @@ select:focus {
     min-height: calc(100vh - 24px);
   }
 
-  .summary-strip {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .toggle-row {
-    grid-column: 1 / -1;
+  .delivery-screen {
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
   }
 
   .top-bar {
@@ -395,4 +770,52 @@ select:focus {
   .top-bar .ghost-button {
     padding: 0 12px;
   }
+
+  .delivery-screen .top-bar {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  .delivery-screen .top-bar h1 {
+    font-size: 19px;
+  }
+
+  .delivery-screen .date-panel {
+    padding: 0;
+  }
+
+  .delivery-screen .summary-strip {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+    padding: 6px;
+  }
+
+  .delivery-screen .summary-toggles {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .summary-counts {
+    gap: 8px;
+  }
+
+  .summary-actions button {
+    font-size: 12px;
+  }
+
+  .delivery-screen .top-bar > .ghost-button {
+    padding: 0 4px;
+    font-size: 12px;
+  }
+
+  .delivery-screen .delivery-card {
+    padding: 10px;
+  }
+
+  .delivery-screen .actions {
+    gap: 6px;
+  }
+
 }

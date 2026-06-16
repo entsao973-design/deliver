@@ -153,12 +153,36 @@ class DeliveryRepository:
         dates = self.dates_for_vehicle(vehicle_no)
         return dates[0]["delivery_date"] if dates else None
 
+    def vehicles_for_latest_date(self) -> dict[str, Any]:
+        with self._lock:
+            active = [
+                record
+                for record in self._read_data_unlocked().get("deliveries", [])
+                if not record.get("deleted_at")
+            ]
+
+        latest_date = max((record.get("delivery_date", "") for record in active), default="")
+        drivers_by_vehicle = {
+            record.get("vehicle_no", ""): record.get("driver", "")
+            for record in active
+            if record.get("delivery_date") == latest_date and record.get("vehicle_no")
+        }
+        vehicles = sorted(drivers_by_vehicle)
+        return {
+            "delivery_date": latest_date,
+            "vehicles": vehicles,
+            "vehicle_options": [
+                {"vehicle_no": vehicle_no, "driver": drivers_by_vehicle[vehicle_no]}
+                for vehicle_no in vehicles
+            ],
+        }
+
     def get_public_record(self, delivery_id: str) -> dict[str, Any] | None:
         with self._lock:
             record = self._find_record_unlocked(delivery_id)
             return self._public_record(record) if record else None
 
-    def update_photo(self, delivery_id: str, status: str, photo_data_url: str) -> dict[str, Any]:
+    def update_photo(self, delivery_id: str, status: str, photo_data_url: str, captured_at: str | None = None) -> dict[str, Any]:
         if status not in STATUS_LABELS:
             raise ValueError("達交狀態不正確")
 
@@ -172,10 +196,11 @@ class DeliveryRepository:
 
             old_photo_path = record.get("photo_path")
             new_photo_path = self._save_photo_unlocked(record, status, photo_data_url)
+            photo_time = photo_timestamp(captured_at)
             now = datetime.now().isoformat(timespec="seconds")
             record["status"] = status
             record["photo_path"] = str(new_photo_path)
-            record["photo_updated_at"] = now
+            record["photo_updated_at"] = photo_time
             record["updated_at"] = now
             self._remove_old_photo_unlocked(old_photo_path, str(new_photo_path))
             self._write_data_unlocked(data)
@@ -259,13 +284,23 @@ class DeliveryRepository:
             return None
         return path if path.exists() else None
 
-    def filter_options(self) -> dict[str, list[str]]:
+    def filter_options(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        deleted: bool = False,
+    ) -> dict[str, list[str]]:
         with self._lock:
-            active = [record for record in self._read_data_unlocked().get("deliveries", []) if not record.get("deleted_at")]
+            records = [
+                record
+                for record in self._read_data_unlocked().get("deliveries", [])
+                if bool(record.get("deleted_at")) == deleted
+                and self._matches_date_range(record, start_date, end_date)
+            ]
         return {
-            "dates": sorted({record.get("delivery_date", "") for record in active if record.get("delivery_date")}, reverse=True),
-            "companies": sorted({record.get("company", "") for record in active if record.get("company")}),
-            "drivers": sorted({record.get("driver", "") for record in active if record.get("driver")}),
+            "dates": sorted({record.get("delivery_date", "") for record in records if record.get("delivery_date")}, reverse=True),
+            "companies": sorted({record.get("company", "") for record in records if record.get("company")}),
+            "drivers": sorted({record.get("driver", "") for record in records if record.get("driver")}),
         }
 
     def delete_delivery(self, delivery_id: str, username: str) -> dict[str, Any]:
@@ -439,6 +474,16 @@ def normalize_delivery_date(value: str) -> str:
     if re.fullmatch(r"\d{8}", text):
         return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
     return text
+
+
+def photo_timestamp(value: str | None) -> str:
+    text = str(value or "").strip()
+    if text:
+        try:
+            return datetime.fromisoformat(text).replace(microsecond=0, tzinfo=None).isoformat(timespec="seconds")
+        except ValueError:
+            pass
+    return datetime.now().isoformat(timespec="seconds")
 
 
 def date_to_folder(value: str) -> str:

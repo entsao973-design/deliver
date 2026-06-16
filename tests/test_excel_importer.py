@@ -168,6 +168,76 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertEqual(invoices["INV-MERGED-2"]["company"], "公司乙")
             self.assertEqual(invoices["INV-3"]["seq"], 3)
 
+    def test_vehicle_options_use_latest_delivery_date(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_delivery_workbook(excel_path)
+            DeliveryRepository(str(excel_path), str(data_file), str(Path(temp_dir) / "photos"))
+
+            data = json.loads(data_file.read_text(encoding="utf-8"))
+            older_record = dict(data["deliveries"][0])
+            older_record["id"] = "older-vehicle"
+            older_record["vehicle_no"] = "OLD-CAR"
+            older_record["vehicle_no_normalized"] = "OLD-CAR"
+            older_record["delivery_date"] = "2026-06-10"
+            older_record["date_folder"] = "20260610"
+            data["deliveries"].append(older_record)
+            data_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+            repo = DeliveryRepository(None, str(data_file), str(Path(temp_dir) / "photos"))
+
+            self.assertEqual(
+                repo.vehicles_for_latest_date(),
+                {
+                    "delivery_date": "2026-06-11",
+                    "vehicles": ["TEST-001"],
+                    "vehicle_options": [{"vehicle_no": "TEST-001", "driver": "測試司機"}],
+                },
+            )
+
+    def test_filter_options_use_date_range_and_deleted_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_file = Path(temp_dir) / "deliveries.json"
+            data_file.write_text(
+                json.dumps(
+                    {
+                        "deliveries": [
+                            make_delivery_record("old", "2026-06-10", "OldCo", "OldDriver"),
+                            make_delivery_record("in-range", "2026-06-12", "RangeCo", "RangeDriver"),
+                            make_delivery_record("new", "2026-06-14", "NewCo", "NewDriver"),
+                            make_delivery_record(
+                                "deleted",
+                                "2026-06-12",
+                                "DeletedCo",
+                                "DeletedDriver",
+                                deleted_at="2026-06-13T10:00:00",
+                            ),
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            repo = DeliveryRepository(None, str(data_file), str(Path(temp_dir) / "photos"))
+
+            self.assertEqual(
+                repo.filter_options(start_date="2026-06-11", end_date="2026-06-13"),
+                {
+                    "dates": ["2026-06-12"],
+                    "companies": ["RangeCo"],
+                    "drivers": ["RangeDriver"],
+                },
+            )
+            self.assertEqual(
+                repo.filter_options(start_date="2026-06-11", end_date="2026-06-13", deleted=True),
+                {
+                    "dates": ["2026-06-12"],
+                    "companies": ["DeletedCo"],
+                    "drivers": ["DeletedDriver"],
+                },
+            )
+
     def test_photo_path_uses_company_folder_and_status_suffix(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             excel_path = Path(temp_dir) / "merged.xlsx"
@@ -182,6 +252,22 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertEqual(path.name, f"{delivery['invoice_no']}_異常.JPG")
             self.assertEqual(path.parent.name, delivery["company"])
             self.assertEqual(path.parent.parent.name, "20260611")
+
+    def test_update_photo_uses_captured_at_for_photo_time(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            build_delivery_workbook(excel_path)
+            repo = DeliveryRepository(str(excel_path), str(Path(temp_dir) / "deliveries.json"), str(Path(temp_dir) / "photos"))
+            delivery = repo.list_for_vehicle("TEST-001", include_delivered=True, delivery_date="2026-06-11")[0]
+
+            updated = repo.update_photo(
+                delivery["id"],
+                "normal",
+                "data:image/jpeg;base64,dGVzdA==",
+                captured_at="2026-06-14T09:30:00",
+            )
+
+            self.assertEqual(updated["photo_updated_at"], "2026-06-14T09:30:00")
 
     def test_archive_photos_creates_company_zip(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -217,6 +303,33 @@ class UserStoreTest(unittest.TestCase):
             ok, user, message = store.authenticate("driver", "1234")
             self.assertFalse(ok)
             self.assertIn("分鐘後再試", message)
+
+
+def make_delivery_record(
+    record_id: str,
+    delivery_date: str,
+    company: str,
+    driver: str,
+    deleted_at: str | None = None,
+) -> dict[str, object]:
+    return {
+        "id": record_id,
+        "seq": 1,
+        "vehicle_no": "TEST-001",
+        "vehicle_no_normalized": "TEST-001",
+        "driver": driver,
+        "delivery_date": delivery_date,
+        "date_folder": delivery_date.replace("-", ""),
+        "customer": f"Customer {record_id}",
+        "company": company,
+        "invoice_no": f"INV-{record_id}",
+        "status": None,
+        "photo_path": None,
+        "photo_updated_at": None,
+        "updated_at": None,
+        "deleted_at": deleted_at,
+        "deleted_by": "admin" if deleted_at else None,
+    }
 
 
 if __name__ == "__main__":

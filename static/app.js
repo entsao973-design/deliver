@@ -1,3 +1,5 @@
+const DRIVER_DATE_OPTION_LIMIT = 10;
+
 const state = {
   token: localStorage.getItem("delivery_token") || "",
   profile: JSON.parse(localStorage.getItem("delivery_profile") || "null"),
@@ -5,8 +7,11 @@ const state = {
   counts: { open: 0, done: 0, total: 0 },
   dates: [],
   selectedDate: localStorage.getItem("delivery_selected_date") || "",
+  rememberedLogin: JSON.parse(localStorage.getItem("delivery_remembered_login") || "null"),
   pendingDelivery: null,
   pendingStatus: null,
+  pendingUploads: [],
+  syncInProgress: false,
   dialogDelivery: null,
 };
 
@@ -16,7 +21,12 @@ const els = {
   loginForm: document.querySelector("#loginForm"),
   username: document.querySelector("#username"),
   password: document.querySelector("#password"),
+  togglePassword: document.querySelector("#togglePassword"),
+  passwordEyeOpen: document.querySelector("#passwordEyeOpen"),
+  passwordEyeClosed: document.querySelector("#passwordEyeClosed"),
   vehicleNo: document.querySelector("#vehicleNo"),
+  vehicleSelect: document.querySelector("#vehicleSelect"),
+  vehicleOptions: document.querySelector("#vehicleOptions"),
   rememberLogin: document.querySelector("#rememberLogin"),
   loginError: document.querySelector("#loginError"),
   routeDate: document.querySelector("#routeDate"),
@@ -28,8 +38,10 @@ const els = {
   openCount: document.querySelector("#openCount"),
   doneCount: document.querySelector("#doneCount"),
   hideDoneToggle: document.querySelector("#hideDoneToggle"),
+  showAllPhotosToggle: document.querySelector("#showAllPhotosToggle"),
   refreshButton: document.querySelector("#refreshButton"),
   reloadButton: document.querySelector("#reloadButton"),
+  queueStatus: document.querySelector("#queueStatus"),
   message: document.querySelector("#message"),
   deliveryList: document.querySelector("#deliveryList"),
   photoInput: document.querySelector("#photoInput"),
@@ -37,9 +49,6 @@ const els = {
   photoTitle: document.querySelector("#photoTitle"),
   photoPreview: document.querySelector("#photoPreview"),
   photoViewport: document.querySelector("#photoViewport"),
-  photoZoomIn: document.querySelector("#photoZoomIn"),
-  photoZoomOut: document.querySelector("#photoZoomOut"),
-  photoZoomReset: document.querySelector("#photoZoomReset"),
   closePhotoButton: document.querySelector("#closePhotoButton"),
   retakeButton: document.querySelector("#retakeButton"),
 };
@@ -48,10 +57,10 @@ createPhotoViewer({
   dialog: els.photoDialog,
   image: els.photoPreview,
   viewport: els.photoViewport,
-  zoomIn: els.photoZoomIn,
-  zoomOut: els.photoZoomOut,
-  reset: els.photoZoomReset,
 });
+
+const offlineQueueApi = window.OfflineUploadQueue;
+const photoQueue = offlineQueueApi ? new offlineQueueApi.IndexedDbPhotoQueue() : null;
 
 els.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -83,11 +92,23 @@ els.loginForm.addEventListener("submit", async (event) => {
     localStorage.setItem("delivery_profile", JSON.stringify(state.profile));
     localStorage.setItem("delivery_selected_date", state.selectedDate);
     setMessage("");
+    resetDeliveryControls();
+    await refreshPendingUploads();
     showDeliveryScreen();
     renderDeliveries();
+    syncPendingUploads();
   } catch (error) {
     els.loginError.textContent = error.message;
   }
+});
+
+els.togglePassword.addEventListener("click", () => {
+  const isVisible = els.password.type === "password";
+  els.password.type = isVisible ? "text" : "password";
+  els.togglePassword.setAttribute("aria-label", isVisible ? "隱藏密碼" : "顯示密碼");
+  els.togglePassword.setAttribute("aria-pressed", String(isVisible));
+  setPasswordIconHidden(els.passwordEyeOpen, isVisible);
+  setPasswordIconHidden(els.passwordEyeClosed, !isVisible);
 });
 
 els.logoutButton.addEventListener("click", () => {
@@ -98,8 +119,7 @@ els.logoutButton.addEventListener("click", () => {
   localStorage.removeItem("delivery_role");
   localStorage.removeItem("delivery_profile");
   localStorage.removeItem("delivery_selected_date");
-  els.deliveryScreen.hidden = true;
-  els.loginScreen.hidden = false;
+  showLoginScreen();
 });
 
 els.dateSelect.addEventListener("change", () => {
@@ -108,8 +128,26 @@ els.dateSelect.addEventListener("change", () => {
   loadDeliveries();
 });
 
+els.vehicleSelect.addEventListener("change", () => {
+  if (els.vehicleSelect.value) {
+    els.vehicleNo.value = els.vehicleSelect.value;
+  }
+});
+
+els.vehicleNo.addEventListener("input", () => {
+  const typedVehicle = els.vehicleNo.value.trim();
+  const hasOption = Array.from(els.vehicleSelect.options).some((option) => option.value === typedVehicle);
+  els.vehicleSelect.value = hasOption ? typedVehicle : "";
+});
+
 els.hideDoneToggle.addEventListener("change", loadDeliveries);
+els.showAllPhotosToggle.addEventListener("change", renderDeliveries);
 els.refreshButton.addEventListener("click", loadDeliveries);
+window.addEventListener("online", () => {
+  updateQueueStatus();
+  syncPendingUploads();
+});
+window.addEventListener("offline", () => updateQueueStatus());
 els.reloadButton.addEventListener("click", async () => {
   setMessage("重新匯入中...");
   try {
@@ -128,24 +166,30 @@ els.photoInput.addEventListener("change", async () => {
     return;
   }
 
+  const delivery = state.pendingDelivery;
+  const status = state.pendingStatus;
+  let dataUrl = "";
+  let capturedAt = "";
   setMessage("照片處理中...");
   try {
-    const dataUrl = await compressToJpegDataUrl(file, 1800, 0.86);
-    const result = await api(`/api/deliveries/${state.pendingDelivery.id}/photo`, {
-      method: "POST",
-      body: {
-        token: state.token,
-        status: state.pendingStatus,
-        delivery_date: state.selectedDate,
-        photo_data: dataUrl,
-      },
-    });
+    dataUrl = await compressToJpegDataUrl(file, 1800, 0.86);
+    capturedAt = currentLocalTimestamp();
+    if (navigator.onLine === false) {
+      await queuePhotoUpload(delivery, status, dataUrl, capturedAt);
+      return;
+    }
 
+    const result = await uploadPhoto(delivery.id, status, dataUrl, capturedAt);
     upsertDelivery(result.delivery);
     state.counts = result.counts;
+    await removePendingUpload(delivery.id);
     renderDeliveries();
-    setMessage("照片已送出");
+    setMessage("照片已上傳");
   } catch (error) {
+    if (dataUrl && offlineQueueApi && offlineQueueApi.shouldQueueUploadError(error, navigator.onLine)) {
+      await queuePhotoUpload(delivery, status, dataUrl, capturedAt || currentLocalTimestamp());
+      return;
+    }
     setMessage(error.message, true);
   } finally {
     state.pendingDelivery = null;
@@ -180,11 +224,16 @@ async function loadDeliveries() {
     state.counts = result.counts;
     localStorage.setItem("delivery_profile", JSON.stringify(state.profile));
     localStorage.setItem("delivery_selected_date", state.selectedDate);
+    await refreshPendingUploads();
     showDeliveryScreen();
     renderDeliveries();
+    syncPendingUploads();
     setMessage("");
   } catch (error) {
-    setMessage(error.message, true);
+    const message = offlineQueueApi
+      ? offlineQueueApi.deliveryLoadErrorMessage(error, navigator.onLine)
+      : error.message;
+    setMessage(message, true);
     if (error.status === 401) {
       showLoginScreen();
     }
@@ -192,7 +241,9 @@ async function loadDeliveries() {
 }
 
 function renderDeliveries() {
-  const shown = state.deliveries;
+  const shown = offlineQueueApi
+    ? offlineQueueApi.mergePendingUploads(state.deliveries, state.pendingUploads)
+    : state.deliveries;
   els.openCount.textContent = state.counts.open;
   els.doneCount.textContent = state.counts.done;
 
@@ -214,7 +265,13 @@ function renderCard(delivery) {
   const card = document.createElement("article");
   card.className = "delivery-card";
 
-  const badgeClass = delivery.status === "normal" ? "normal" : delivery.status === "abnormal" ? "abnormal" : "";
+  const badgeClass = delivery.local_pending_upload
+    ? "pending"
+    : delivery.status === "normal"
+      ? "normal"
+      : delivery.status === "abnormal"
+        ? "abnormal"
+        : "";
   card.innerHTML = `
     <div class="card-main">
       <div class="card-title-row">
@@ -235,18 +292,41 @@ function renderCard(delivery) {
   card.querySelector(".invoice").textContent = delivery.invoice_no;
   card.querySelector(".company").textContent = delivery.company;
   card.querySelector(".updated-line").textContent = delivery.photo_updated_at
-    ? `照片時間 ${delivery.photo_updated_at}`
+    ? `照片時間 ${delivery.photo_updated_at.replace("T", " ")}`
     : "";
+
+  if (delivery.has_photo && els.showAllPhotosToggle.checked) {
+    const viewport = document.createElement("div");
+    const photo = document.createElement("img");
+    const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
+    viewport.className = "inline-photo-viewport";
+    photo.className = "inline-photo";
+    photo.src = delivery.local_photo_data || `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(state.token)}&t=${stamp}`;
+    photo.alt = `${delivery.invoice_no} 達交照片`;
+    viewport.append(photo);
+    card.insertBefore(viewport, card.querySelector(".actions"));
+    createPhotoViewer({
+      viewport,
+      image: photo,
+      useWindowResize: false,
+    });
+  }
 
   const actions = card.querySelector(".actions");
   if (delivery.has_photo) {
-    actions.append(makeButton("檢視照片", "secondary-button wide", () => openPhoto(delivery)));
+    if (!els.showAllPhotosToggle.checked) {
+      actions.append(makeButton("檢視照片", "secondary-button wide", () => openPhoto(delivery)));
+    }
     actions.append(makeButton("重新拍照", "secondary-button", () => startCapture(delivery, delivery.status || "normal")));
-    actions.append(
-      makeButton(delivery.status === "normal" ? "改異常" : "改正常", delivery.status === "normal" ? "abnormal-button" : "normal-button", () =>
-        startCapture(delivery, delivery.status === "normal" ? "abnormal" : "normal"),
-      ),
-    );
+    if (delivery.local_pending_upload) {
+      actions.append(makeButton("立即上傳", "secondary-button", syncPendingUploads));
+    } else {
+      actions.append(
+        makeButton(delivery.status === "normal" ? "改異常" : "改正常", delivery.status === "normal" ? "abnormal-button" : "normal-button", () =>
+          startCapture(delivery, delivery.status === "normal" ? "abnormal" : "normal"),
+        ),
+      );
+    }
   } else {
     actions.append(makeButton("正常達交", "normal-button", () => startCapture(delivery, "normal")));
     actions.append(makeButton("異常達交", "abnormal-button", () => startCapture(delivery, "abnormal")));
@@ -274,7 +354,7 @@ function openPhoto(delivery) {
   state.dialogDelivery = delivery;
   const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
   els.photoTitle.textContent = `${delivery.invoice_no} ${delivery.status_label}`;
-  els.photoPreview.src = `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(state.token)}&t=${stamp}`;
+  els.photoPreview.src = delivery.local_photo_data || `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(state.token)}&t=${stamp}`;
   els.photoDialog.showModal();
 }
 
@@ -291,6 +371,147 @@ function upsertDelivery(delivery) {
   } else {
     state.deliveries.push(delivery);
   }
+}
+
+async function uploadPhoto(deliveryId, status, dataUrl, capturedAt = "") {
+  return api(`/api/deliveries/${deliveryId}/photo`, {
+    method: "POST",
+    body: {
+      token: state.token,
+      status,
+      delivery_date: state.selectedDate,
+      photo_data: dataUrl,
+      captured_at: capturedAt,
+    },
+  });
+}
+
+async function refreshPendingUploads() {
+  if (!photoQueue || !photoQueue.isSupported()) {
+    state.pendingUploads = [];
+    updateQueueStatus();
+    return;
+  }
+
+  try {
+    const uploads = await photoQueue.list();
+    state.pendingUploads = uploads.filter((upload) => !state.profile?.vehicle_no || upload.vehicle_no === state.profile.vehicle_no);
+  } catch (error) {
+    state.pendingUploads = [];
+    updateQueueStatus("離線暫存讀取失敗");
+    return;
+  }
+  updateQueueStatus();
+}
+
+async function queuePhotoUpload(delivery, status, dataUrl, capturedAt) {
+  if (!photoQueue || !photoQueue.isSupported()) {
+    setMessage("此瀏覽器不支援離線照片暫存", true);
+    return;
+  }
+
+  const upload = offlineQueueApi.buildQueuedUpload({
+    delivery,
+    status,
+    delivery_date: state.selectedDate,
+    vehicle_no: state.profile?.vehicle_no || "",
+    photo_data: dataUrl,
+    captured_at: capturedAt,
+  });
+
+  try {
+    await photoQueue.put(upload);
+    await refreshPendingUploads();
+    renderDeliveries();
+    setMessage("網路中斷，照片已暫存，待網路恢復後上傳");
+  } catch (error) {
+    setMessage(error.message, true);
+  }
+}
+
+async function removePendingUpload(deliveryId) {
+  if (!photoQueue || !photoQueue.isSupported()) {
+    return;
+  }
+
+  await photoQueue.remove(deliveryId);
+  await refreshPendingUploads();
+}
+
+async function syncPendingUploads() {
+  if (!photoQueue || !photoQueue.isSupported() || state.syncInProgress || !state.token) {
+    updateQueueStatus();
+    return;
+  }
+  if (navigator.onLine === false) {
+    updateQueueStatus();
+    return;
+  }
+
+  const uploads = state.pendingUploads.length ? state.pendingUploads : await photoQueue.list();
+  const currentVehicle = state.profile?.vehicle_no || "";
+  const uploadsForSession = uploads.filter((upload) => !currentVehicle || upload.vehicle_no === currentVehicle);
+  if (uploadsForSession.length === 0) {
+    await refreshPendingUploads();
+    return;
+  }
+
+  state.syncInProgress = true;
+  updateQueueStatus();
+  let uploadedCount = 0;
+  try {
+    for (const upload of uploadsForSession) {
+      try {
+        const result = await uploadPhoto(upload.delivery_id, upload.status, upload.photo_data, upload.captured_at);
+        await photoQueue.remove(upload.delivery_id);
+        upsertDelivery(result.delivery);
+        state.counts = result.counts;
+        uploadedCount += 1;
+      } catch (error) {
+        if (offlineQueueApi.shouldQueueUploadError(error, navigator.onLine)) {
+          upload.attempt_count = (upload.attempt_count || 0) + 1;
+          upload.last_error = error.message || "網路連線失敗";
+          await photoQueue.put(upload);
+          break;
+        }
+
+        upload.attempt_count = (upload.attempt_count || 0) + 1;
+        upload.last_error = error.message || "補傳失敗";
+        await photoQueue.put(upload);
+        setMessage(upload.last_error, true);
+        break;
+      }
+    }
+  } finally {
+    state.syncInProgress = false;
+    await refreshPendingUploads();
+    renderDeliveries();
+    const completeMessage = offlineQueueApi.syncCompleteMessage(uploadedCount, state.pendingUploads.length);
+    if (completeMessage) {
+      setMessage(completeMessage);
+    }
+  }
+}
+
+function updateQueueStatus(message = "") {
+  if (!els.queueStatus) {
+    return;
+  }
+  els.queueStatus.textContent = offlineQueueApi
+    ? offlineQueueApi.queueStatusMessage({
+        customMessage: message,
+        isSupported: Boolean(photoQueue && photoQueue.isSupported()),
+        syncInProgress: state.syncInProgress,
+        pendingCount: state.pendingUploads.length,
+        isOnline: navigator.onLine,
+      })
+    : "";
+}
+
+function currentLocalTimestamp() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 19);
 }
 
 async function compressToJpegDataUrl(file, maxSide, quality) {
@@ -346,23 +567,30 @@ function showDeliveryScreen() {
   renderDateSelect();
 }
 
+function resetDeliveryControls() {
+  els.hideDoneToggle.checked = true;
+  els.showAllPhotosToggle.checked = false;
+}
+
 function showLoginScreen() {
   els.deliveryScreen.hidden = true;
   els.loginScreen.hidden = false;
   state.token = "";
   localStorage.removeItem("delivery_token");
+  loadVehicleOptions();
 }
 
 function renderDateSelect() {
   els.dateSelect.replaceChildren();
-  for (const item of state.dates) {
+  const visibleDates = state.dates.slice(0, DRIVER_DATE_OPTION_LIMIT);
+  for (const item of visibleDates) {
     const option = document.createElement("option");
     option.value = item.delivery_date;
     option.textContent = formatDate(item.delivery_date);
     option.selected = item.delivery_date === state.selectedDate;
     els.dateSelect.append(option);
   }
-  els.datePanel.hidden = state.dates.length <= 1;
+  els.datePanel.hidden = visibleDates.length <= 1;
 }
 
 function formatDate(value) {
@@ -374,13 +602,79 @@ function setMessage(message, isError = false) {
   els.message.style.color = isError ? "var(--danger)" : "var(--normal)";
 }
 
-function loadRememberedLogin() {
-  const remembered = JSON.parse(localStorage.getItem("delivery_remembered_login") || "null");
-  if (!remembered) {
+function setPasswordIconHidden(icon, isHidden) {
+  if (isHidden) {
+    icon.setAttribute("hidden", "");
     return;
   }
-  els.username.value = remembered.username || "";
-  els.vehicleNo.value = remembered.vehicle_no || "";
+  icon.removeAttribute("hidden");
+}
+
+async function loadVehicleOptions() {
+  els.vehicleNo.placeholder = "載入車號中...";
+  els.vehicleNo.disabled = true;
+  els.vehicleSelect.replaceChildren(makeVehicleSelectOption("", "載入車號中..."));
+  els.vehicleSelect.disabled = true;
+
+  try {
+    const result = await api("/api/vehicles");
+    const vehicles = result.vehicles || [];
+    const vehicleOptions = result.vehicle_options || vehicles.map((vehicleNo) => ({ vehicle_no: vehicleNo, driver: "" }));
+    els.vehicleOptions.replaceChildren();
+    els.vehicleSelect.replaceChildren(makeVehicleSelectOption("", vehicles.length ? "選擇車號" : "目前沒有車號"));
+
+    for (const option of vehicleOptions) {
+      const vehicleNo = option.vehicle_no || "";
+      if (!vehicleNo) {
+        continue;
+      }
+      els.vehicleOptions.append(makeVehicleOption(vehicleNo, formatVehicleOption(option)));
+      els.vehicleSelect.append(makeVehicleSelectOption(vehicleNo, formatVehicleOption(option)));
+    }
+
+    els.vehicleNo.placeholder = vehicles.length ? "選擇或輸入車號" : "請輸入車號";
+    syncVehicleSelect();
+  } catch (error) {
+    els.vehicleNo.placeholder = "請輸入車號";
+    els.vehicleSelect.replaceChildren(makeVehicleSelectOption("", "車號載入失敗"));
+    els.loginError.textContent = error.message;
+  } finally {
+    els.vehicleNo.disabled = false;
+    els.vehicleSelect.disabled = false;
+  }
+}
+
+function makeVehicleOption(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.label = label;
+  return option;
+}
+
+function makeVehicleSelectOption(value, text) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = text;
+  return option;
+}
+
+function formatVehicleOption(option) {
+  return option.driver ? `${option.vehicle_no}:${option.driver}` : option.vehicle_no;
+}
+
+function syncVehicleSelect() {
+  const vehicleNo = els.vehicleNo.value.trim();
+  const hasOption = Array.from(els.vehicleSelect.options).some((option) => option.value === vehicleNo);
+  els.vehicleSelect.value = hasOption ? vehicleNo : "";
+}
+
+function loadRememberedLogin() {
+  if (!state.rememberedLogin) {
+    return;
+  }
+  els.username.value = state.rememberedLogin.username || "";
+  els.vehicleNo.value = state.rememberedLogin.vehicle_no || "";
+  syncVehicleSelect();
   els.rememberLogin.checked = true;
 }
 

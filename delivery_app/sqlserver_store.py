@@ -24,6 +24,7 @@ from .repository import (
     decode_image_data_url,
     list_photo_files,
     normalize_delivery_date,
+    photo_timestamp,
     safe_path_part,
     unique_archive_name,
 )
@@ -280,7 +281,12 @@ class SqlServerRepository(SqlServerBase):
         self.photo_root.mkdir(parents=True, exist_ok=True)
         self.archive_root.mkdir(parents=True, exist_ok=True)
         super().__init__(database_config)
-        if self.excel_path and self.excel_path.is_file() and self._count_deliveries() == 0:
+        if (
+            database_config.get("auto_import_on_empty", False)
+            and self.excel_path
+            and self.excel_path.is_file()
+            and self._count_deliveries() == 0
+        ):
             self.reload_from_excel()
 
     def reload_from_excel(self) -> None:
@@ -450,11 +456,41 @@ WHERE vehicle_no_normalized = ?
         dates = self.dates_for_vehicle(vehicle_no)
         return dates[0]["delivery_date"] if dates else None
 
+    def vehicles_for_latest_date(self) -> dict[str, Any]:
+        rows = self._fetch_rows(
+            """
+SELECT
+    vehicle_no,
+    MAX(driver) AS driver,
+    CONVERT(char(10), delivery_date, 23) AS delivery_date
+FROM dbo.deliveries
+WHERE deleted_at IS NULL
+  AND delivery_date = (
+      SELECT MAX(delivery_date)
+      FROM dbo.deliveries
+      WHERE deleted_at IS NULL
+  )
+GROUP BY vehicle_no, delivery_date
+ORDER BY vehicle_no
+""",
+            [],
+        )
+        latest_date = str(rows[0][2]) if rows else ""
+        return {
+            "delivery_date": latest_date,
+            "vehicles": [str(row[0]) for row in rows if row[0]],
+            "vehicle_options": [
+                {"vehicle_no": str(row[0]), "driver": str(row[1] or "")}
+                for row in rows
+                if row[0]
+            ],
+        }
+
     def get_public_record(self, delivery_id: str) -> dict[str, Any] | None:
         record = self._fetch_by_id(delivery_id)
         return public_delivery(record) if record else None
 
-    def update_photo(self, delivery_id: str, status: str, photo_data_url: str) -> dict[str, Any]:
+    def update_photo(self, delivery_id: str, status: str, photo_data_url: str, captured_at: str | None = None) -> dict[str, Any]:
         if status not in STATUS_LABELS:
             raise ValueError("Invalid delivery status")
 
@@ -470,6 +506,7 @@ WHERE vehicle_no_normalized = ?
 
                     old_photo_path = record.get("photo_path")
                     new_photo_path = self._save_photo(record, status, photo_data_url)
+                    photo_time = to_datetime(photo_timestamp(captured_at)) or datetime.now().replace(microsecond=0)
                     now = datetime.now().replace(microsecond=0)
                     cursor.execute(
                         """
@@ -482,7 +519,7 @@ WHERE id = ?
 """,
                         status,
                         str(new_photo_path),
-                        now,
+                        photo_time,
                         now,
                         delivery_id,
                     )
@@ -586,18 +623,31 @@ WHERE {deleted_clause}
             return None
         return path if path.exists() else None
 
-    def filter_options(self) -> dict[str, list[str]]:
-        rows = self._fetch_rows(
-            """
+    def filter_options(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        deleted: bool = False,
+    ) -> dict[str, list[str]]:
+        deleted_clause = "deleted_at IS NOT NULL" if deleted else "deleted_at IS NULL"
+        params: list[Any] = []
+        sql = f"""
 SELECT
     CONVERT(char(10), delivery_date, 23) AS delivery_date,
     company,
     driver
 FROM dbo.deliveries
-WHERE deleted_at IS NULL
-""",
-            [],
-        )
+WHERE {deleted_clause}
+"""
+        normalized_start = normalize_delivery_date(start_date or "")
+        normalized_end = normalize_delivery_date(end_date or "")
+        if normalized_start:
+            sql += "  AND delivery_date >= ?\n"
+            params.append(normalized_start)
+        if normalized_end:
+            sql += "  AND delivery_date <= ?\n"
+            params.append(normalized_end)
+        rows = self._fetch_rows(sql, params)
         return {
             "dates": sorted({str(row[0]) for row in rows if row[0]}, reverse=True),
             "companies": sorted({str(row[1]) for row in rows if row[1]}),
