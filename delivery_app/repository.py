@@ -10,6 +10,15 @@ from pathlib import Path
 from typing import Any
 
 from .excel_importer import import_deliveries, normalize_vehicle_no
+from .geocoding import (
+    GEOCODE_FAILED,
+    GEOCODE_PENDING,
+    DisabledGeocoder,
+    GeocodeResult,
+    apply_geocode_result,
+    default_geocode_fields,
+    normalize_address,
+)
 
 
 STATUS_LABELS = {
@@ -17,13 +26,32 @@ STATUS_LABELS = {
     "abnormal": "異常",
 }
 
+GEOCODE_FIELDS = (
+    "normalized_address",
+    "geocode_lat",
+    "geocode_lng",
+    "geocode_status",
+    "geocode_provider",
+    "geocode_place_id",
+    "geocode_updated_at",
+    "geocode_error",
+)
+
 
 class DeliveryRepository:
-    def __init__(self, excel_path: str | None, data_file: str, photo_root: str, archive_root: str | None = None) -> None:
+    def __init__(
+        self,
+        excel_path: str | None,
+        data_file: str,
+        photo_root: str,
+        archive_root: str | None = None,
+        geocoder=None,
+    ) -> None:
         self.excel_path = Path(excel_path) if excel_path else None
         self.data_file = Path(data_file)
         self.photo_root = Path(photo_root)
         self.archive_root = Path(archive_root) if archive_root else self.photo_root.parent / "archives"
+        self.geocoder = geocoder or DisabledGeocoder()
         self._lock = threading.Lock()
         self.data_file.parent.mkdir(parents=True, exist_ok=True)
         self.photo_root.mkdir(parents=True, exist_ok=True)
@@ -70,6 +98,9 @@ class DeliveryRepository:
                         "deleted_at": existing.get("deleted_at"),
                         "deleted_by": existing.get("deleted_by"),
                     }
+                    if existing.get("address") == imported_record.get("address"):
+                        for field in GEOCODE_FIELDS:
+                            keep[field] = existing.get(field)
                     existing.clear()
                     existing.update(imported_record)
                     existing.update(keep)
@@ -303,6 +334,78 @@ class DeliveryRepository:
             "drivers": sorted({record.get("driver", "") for record in records if record.get("driver")}),
         }
 
+    def geocode_pending(self) -> dict[str, int]:
+        summary = {
+            "success": 0,
+            "empty": 0,
+            "no_result": 0,
+            "ambiguous": 0,
+            "failed": 0,
+            "cached": 0,
+            "skipped": 0,
+        }
+        if not getattr(self.geocoder, "enabled", False):
+            return summary
+
+        with self._lock:
+            data = self._read_data_unlocked()
+            cache = data.setdefault("geocode_cache", {})
+            changed = False
+
+            for record in data.get("deliveries", []):
+                address = record.get("address", "")
+                if not record.get("geocode_status"):
+                    record.update(default_geocode_fields(address))
+                    changed = True
+                if record.get("geocode_status") != GEOCODE_PENDING:
+                    summary["skipped"] += 1
+                    continue
+
+                normalized = normalize_address(address)
+                if not normalized:
+                    record.update(default_geocode_fields(""))
+                    summary["empty"] += 1
+                    changed = True
+                    continue
+
+                cached = cache.get(normalized)
+                if cached:
+                    result = GeocodeResult(
+                        status=str(cached.get("status") or GEOCODE_PENDING),
+                        normalized_address=normalized,
+                        lat=cached.get("lat"),
+                        lng=cached.get("lng"),
+                        provider=cached.get("provider"),
+                        place_id=cached.get("place_id"),
+                        error_message=cached.get("error_message"),
+                    )
+                    apply_geocode_result(record, result)
+                    summary["cached"] += 1
+                    summary[result.status] = summary.get(result.status, 0) + 1
+                    changed = True
+                    continue
+
+                result = self.geocoder.geocode(address)
+                apply_geocode_result(record, result)
+                if result.status != GEOCODE_FAILED:
+                    cache[normalized] = {
+                        "address": address,
+                        "provider": result.provider,
+                        "place_id": result.place_id,
+                        "lat": result.lat,
+                        "lng": result.lng,
+                        "status": result.status,
+                        "error_message": result.error_message,
+                        "updated_at": record.get("geocode_updated_at"),
+                    }
+                summary[result.status] = summary.get(result.status, 0) + 1
+                changed = True
+
+            if changed:
+                self._write_data_unlocked(data)
+
+        return summary
+
     def delete_delivery(self, delivery_id: str, username: str) -> dict[str, Any]:
         with self._lock:
             data = self._read_data_unlocked()
@@ -372,6 +475,10 @@ class DeliveryRepository:
 
     def _public_record(self, record: dict[str, Any]) -> dict[str, Any]:
         status = record.get("status")
+        geocode_fields = default_geocode_fields(record.get("address", ""))
+        for field in GEOCODE_FIELDS:
+            if record.get(field) is not None:
+                geocode_fields[field] = record.get(field)
         return {
             "id": record["id"],
             "seq": record["seq"],
@@ -380,8 +487,10 @@ class DeliveryRepository:
             "delivery_date": record["delivery_date"],
             "date_folder": record["date_folder"],
             "customer": record["customer"],
+            "address": record.get("address", ""),
             "company": record["company"],
             "invoice_no": record["invoice_no"],
+            **geocode_fields,
             "status": status,
             "status_label": STATUS_LABELS.get(status, "未達交"),
             "has_photo": bool(record.get("photo_path")),
@@ -426,6 +535,7 @@ class DeliveryRepository:
             "delivery_date",
             "date_folder",
             "customer",
+            "address",
             "company",
             "invoice_no",
         )

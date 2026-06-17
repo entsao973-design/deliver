@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-from delivery_app.web import DeliveryServer
+from delivery_app.web import DeliveryServer, load_config
 
 
 @contextmanager
@@ -56,6 +56,13 @@ def request_json(address, method, path, body=None, headers=None):
 
 
 class WebErrorHandlingTest(unittest.TestCase):
+    def test_load_config_accepts_utf8_bom(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.json"
+            config_path.write_text('\ufeff{"port": 8000}', encoding="utf-8")
+
+            self.assertEqual(load_config(config_path)["port"], 8000)
+
     def test_invalid_json_returns_json_error(self):
         with running_server() as address:
             status, content_type, content = request_json(

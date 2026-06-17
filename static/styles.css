@@ -280,7 +280,7 @@ select:focus {
 }
 
 .delivery-screen .summary-strip {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(124px, 1fr);
   align-items: stretch;
   gap: 4px;
   margin-top: 4px;
@@ -370,7 +370,9 @@ select:focus {
 
 .summary-actions {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: stretch;
+  gap: 4px;
 }
 
 .summary-actions button {
@@ -386,6 +388,7 @@ select:focus {
 }
 
 #logoutButton,
+#smartPhotoButton,
 #refreshButton {
   align-self: center;
   height: calc(var(--driver-control-panel-height) * 0.8);
@@ -445,6 +448,8 @@ select:focus {
 
 .delivery-list {
   display: grid;
+  align-content: start;
+  align-items: start;
   gap: 10px;
   padding-bottom: 32px;
 }
@@ -612,6 +617,80 @@ select:focus {
 .abnormal-button {
   background: var(--soft-amber);
   color: var(--abnormal);
+}
+
+.smart-photo-dialog {
+  box-sizing: border-box;
+  width: min(94vw, 520px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26);
+}
+
+.smart-photo-dialog:not([open]) {
+  display: none;
+}
+
+.smart-photo-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.smart-photo-dialog::backdrop {
+  background: rgba(10, 18, 28, 0.54);
+}
+
+.smart-photo-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+}
+
+.smart-photo-status label {
+  min-width: 0;
+  font-size: 14px;
+}
+
+.smart-photo-status input {
+  min-height: 20px;
+}
+
+.smart-photo-candidates {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.smart-photo-candidate {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  min-height: 48px;
+  padding: 7px 10px;
+  text-align: left;
+  white-space: normal;
+}
+
+.smart-photo-candidate-main {
+  color: var(--text);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.smart-photo-candidate-meta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .photo-dialog {
@@ -787,7 +866,7 @@ select:focus {
   }
 
   .delivery-screen .summary-strip {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(124px, 1fr);
     padding: 6px;
   }
 

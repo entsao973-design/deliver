@@ -49,12 +49,50 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(css, /\.delivery-screen \.top-bar,[\s\S]*\.delivery-screen \.summary-strip\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*height:\s*var\(--driver-control-panel-height\);/);
   assert.match(css, /\.delivery-screen \.top-bar\s*\{[\s\S]*gap:\s*6px;[\s\S]*padding:\s*4px 8px;/);
   assert.match(css, /\.delivery-screen button\s*\{[\s\S]*min-height:\s*32px;[\s\S]*white-space:\s*nowrap;[\s\S]*word-break:\s*keep-all;/);
-  assert.match(css, /#logoutButton,\s*#refreshButton\s*\{[\s\S]*align-self:\s*center;[\s\S]*height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);[\s\S]*min-height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);/);
+  assert.match(css, /#logoutButton,\s*#smartPhotoButton,\s*#refreshButton\s*\{[\s\S]*align-self:\s*center;[\s\S]*height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);[\s\S]*min-height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);/);
   assert.match(css, /\.delivery-screen select\s*\{[\s\S]*min-height:\s*32px;/);
+  assert.match(css, /\.summary-actions\s*\{[\s\S]*grid-template-columns:\s*1fr 1fr;/);
   assert.match(css, /\.summary-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*white-space:\s*nowrap;/);
   assert.match(css, /\.delivery-screen \.summary-strip\s*\{[\s\S]*gap:\s*4px;[\s\S]*margin-top:\s*4px;[\s\S]*padding:\s*5px 6px;/);
   assert.match(css, /\.delivery-screen \.summary-strip \.toggle-row input\s*\{[\s\S]*width:\s*18px;[\s\S]*min-height:\s*18px;/);
   assert.match(css, /\.delivery-screen \.delivery-list\s*\{[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);
+});
+
+test("driver and admin lists keep cards at content height when few records remain", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
+  const adminCss = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+
+  assert.match(css, /\.delivery-list\s*\{[\s\S]*align-content:\s*start;[\s\S]*align-items:\s*start;/);
+  assert.match(adminCss, /\.admin-list\s*\{[\s\S]*align-content:\s*start;[\s\S]*align-items:\s*start;/);
+  assert.match(css, /\.delivery-screen \.delivery-card\s*\{[\s\S]*padding:\s*11px 12px;/);
+  assert.match(adminCss, /\.admin-card\s*\{[\s\S]*padding:\s*4px 14px;/);
+});
+
+test("driver smart photo button sits before refresh and loads before the app", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+
+  assert.match(html, /<button id="smartPhotoButton" class="secondary-button" type="button">智慧達交<\/button>\s*<button id="refreshButton"/);
+  const smartPhotoScriptIndex = html.indexOf('<script src="/static/smart-photo.js"></script>');
+  const appScriptIndex = html.indexOf('<script src="/static/app.js" defer></script>');
+  assert.notEqual(smartPhotoScriptIndex, -1);
+  assert.ok(smartPhotoScriptIndex < appScriptIndex);
+  assert.match(appJs, /smartPhotoButton:\s*document\.querySelector\("#smartPhotoButton"\)/);
+  assert.match(appJs, /els\.smartPhotoButton\.addEventListener\("click", handleSmartPhoto\);/);
+});
+
+test("driver smart photo dialog offers delivery status choices and candidate selection", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+
+  assert.match(html, /<dialog id="smartPhotoDialog" class="smart-photo-dialog">/);
+  assert.match(html, /<input id="smartPhotoStatusNormal"[^>]*value="normal"[^>]*checked/);
+  assert.match(html, /<input id="smartPhotoStatusAbnormal"[^>]*value="abnormal"/);
+  assert.match(html, /<div id="smartPhotoCandidates" class="smart-photo-candidates"><\/div>/);
+  assert.match(appJs, /function handleSmartPhoto\(\)/);
+  assert.match(appJs, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(appJs, /window\.SmartPhoto\.outcomeForPosition/);
+  assert.match(appJs, /startCapture\(candidate\.delivery, selectedSmartPhotoStatus\(\)\)/);
 });
 
 test("driver inline photos use a fixed zoomable viewport", () => {

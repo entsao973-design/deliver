@@ -115,6 +115,8 @@
 
 .admin-list {
   display: grid;
+  align-content: start;
+  align-items: start;
   gap: 4px;
   min-height: 0;
   overflow-y: auto;

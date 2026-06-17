@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import hashlib
 import threading
 import zipfile
 from datetime import datetime, timedelta
@@ -18,7 +19,17 @@ from .auth import (
     verify_password,
 )
 from .excel_importer import import_deliveries, normalize_vehicle_no
+from .geocoding import (
+    GEOCODE_EMPTY,
+    GEOCODE_FAILED,
+    GEOCODE_PENDING,
+    DisabledGeocoder,
+    GeocodeResult,
+    default_geocode_fields,
+    normalize_address,
+)
 from .repository import (
+    GEOCODE_FIELDS,
     STATUS_LABELS,
     date_to_folder,
     decode_image_data_url,
@@ -44,6 +55,15 @@ DELIVERY_FIELDS = (
     "delivery_date",
     "date_folder",
     "customer",
+    "address",
+    "normalized_address",
+    "geocode_lat",
+    "geocode_lng",
+    "geocode_status",
+    "geocode_provider",
+    "geocode_place_id",
+    "geocode_updated_at",
+    "geocode_error",
     "company",
     "invoice_no",
     "status",
@@ -65,6 +85,15 @@ driver,
 CONVERT(char(10), delivery_date, 23) AS delivery_date,
 date_folder,
 customer,
+address,
+normalized_address,
+CAST(geocode_lat AS float) AS geocode_lat,
+CAST(geocode_lng AS float) AS geocode_lng,
+geocode_status,
+geocode_provider,
+geocode_place_id,
+CONVERT(varchar(19), geocode_updated_at, 126) AS geocode_updated_at,
+geocode_error,
 company,
 invoice_no,
 status,
@@ -86,6 +115,7 @@ IMPORTED_FIELDS = (
     "delivery_date",
     "date_folder",
     "customer",
+    "address",
     "company",
     "invoice_no",
 )
@@ -165,6 +195,15 @@ BEGIN
         delivery_date date NOT NULL,
         date_folder char(8) NOT NULL,
         customer nvarchar(500) NOT NULL,
+        address nvarchar(1000) NOT NULL CONSTRAINT DF_deliveries_address DEFAULT N'',
+        normalized_address nvarchar(1000) NULL,
+        geocode_lat decimal(9,6) NULL,
+        geocode_lng decimal(9,6) NULL,
+        geocode_status nvarchar(20) NOT NULL CONSTRAINT DF_deliveries_geocode_status DEFAULT N'pending',
+        geocode_provider nvarchar(50) NULL,
+        geocode_place_id nvarchar(255) NULL,
+        geocode_updated_at datetime2(0) NULL,
+        geocode_error nvarchar(500) NULL,
         company nvarchar(255) NOT NULL,
         invoice_no nvarchar(255) NOT NULL,
         status nvarchar(20) NULL,
@@ -175,6 +214,46 @@ BEGIN
         deleted_by nvarchar(255) NULL,
         created_at datetime2(0) NOT NULL CONSTRAINT DF_deliveries_created_at DEFAULT SYSDATETIME()
     );
+END
+"""
+            )
+            cursor.execute(
+                """
+IF COL_LENGTH(N'dbo.deliveries', N'address') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD address nvarchar(1000) NOT NULL CONSTRAINT DF_deliveries_address DEFAULT N'';
+END
+IF COL_LENGTH(N'dbo.deliveries', N'normalized_address') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD normalized_address nvarchar(1000) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_lat') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_lat decimal(9,6) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_lng') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_lng decimal(9,6) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_status') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_status nvarchar(20) NOT NULL CONSTRAINT DF_deliveries_geocode_status DEFAULT N'pending';
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_provider') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_provider nvarchar(50) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_place_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_place_id nvarchar(255) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_updated_at') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_updated_at datetime2(0) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'geocode_error') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD geocode_error nvarchar(500) NULL;
 END
 """
             )
@@ -214,6 +293,38 @@ IF NOT EXISTS (
 )
 BEGIN
     CREATE INDEX IX_deliveries_admin_filters ON dbo.deliveries(delivery_date, company, driver, deleted_at);
+END
+"""
+            )
+            cursor.execute(
+                """
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'IX_deliveries_geocode_status'
+      AND object_id = OBJECT_ID(N'dbo.deliveries')
+)
+BEGIN
+    CREATE INDEX IX_deliveries_geocode_status ON dbo.deliveries(geocode_status, deleted_at);
+END
+"""
+            )
+            cursor.execute(
+                """
+IF OBJECT_ID(N'dbo.address_geocode_cache', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.address_geocode_cache (
+        cache_key char(64) NOT NULL CONSTRAINT PK_address_geocode_cache PRIMARY KEY,
+        normalized_address nvarchar(1000) NOT NULL,
+        original_address nvarchar(1000) NULL,
+        provider nvarchar(50) NULL,
+        place_id nvarchar(255) NULL,
+        lat decimal(9,6) NULL,
+        lng decimal(9,6) NULL,
+        status nvarchar(20) NOT NULL,
+        error_message nvarchar(500) NULL,
+        updated_at datetime2(0) NOT NULL CONSTRAINT DF_address_geocode_cache_updated_at DEFAULT SYSDATETIME()
+    );
 END
 """
             )
@@ -273,10 +384,12 @@ class SqlServerRepository(SqlServerBase):
         excel_path: str | None,
         photo_root: str,
         archive_root: str | None = None,
+        geocoder=None,
     ) -> None:
         self.excel_path = Path(excel_path) if excel_path else None
         self.photo_root = Path(photo_root)
         self.archive_root = Path(archive_root) if archive_root else self.photo_root.parent / "archives"
+        self.geocoder = geocoder or DisabledGeocoder()
         self._lock = threading.Lock()
         self.photo_root.mkdir(parents=True, exist_ok=True)
         self.archive_root.mkdir(parents=True, exist_ok=True)
@@ -311,6 +424,10 @@ class SqlServerRepository(SqlServerBase):
                             if existing.get("status"):
                                 summary["locked_delivered"] += 1
                                 continue
+
+                            if existing.get("address") == imported_record.get("address"):
+                                for field in GEOCODE_FIELDS:
+                                    imported_record[field] = existing.get(field)
 
                             if same_imported_values(existing, imported_record):
                                 summary["skipped"] += 1
@@ -654,6 +771,60 @@ WHERE {deleted_clause}
             "drivers": sorted({str(row[2]) for row in rows if row[2]}),
         }
 
+    def geocode_pending(self) -> dict[str, int]:
+        summary = {
+            "success": 0,
+            "empty": 0,
+            "no_result": 0,
+            "ambiguous": 0,
+            "failed": 0,
+            "cached": 0,
+            "skipped": 0,
+        }
+        if not getattr(self.geocoder, "enabled", False):
+            return summary
+
+        with self._lock:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                try:
+                    cursor.execute(
+                        """
+SELECT id, address
+FROM dbo.deliveries
+WHERE geocode_status = ?
+  AND deleted_at IS NULL
+ORDER BY delivery_date, invoice_no
+""",
+                        GEOCODE_PENDING,
+                    )
+                    pending_rows = list(cursor.fetchall())
+
+                    for row in pending_rows:
+                        delivery_id = str(row[0])
+                        address = str(row[1] or "")
+                        normalized = normalize_address(address)
+                        if not normalized:
+                            result = GeocodeResult(status=GEOCODE_EMPTY, normalized_address="")
+                        else:
+                            result = self._fetch_geocode_cache(cursor, normalized)
+                            if result:
+                                summary["cached"] += 1
+                            else:
+                                result = self.geocoder.geocode(address)
+                                if result.status != GEOCODE_FAILED:
+                                    self._upsert_geocode_cache(cursor, address, result)
+
+                        self._update_delivery_geocode(cursor, delivery_id, result)
+                        summary[result.status] = summary.get(result.status, 0) + 1
+
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                    raise
+
+        return summary
+
     def delete_delivery(self, delivery_id: str, username: str) -> dict[str, Any]:
         with self._lock:
             with self._connect() as connection:
@@ -744,15 +915,107 @@ WHERE id = ?
         row = cursor.fetchone()
         return row_to_delivery(row) if row else None
 
+    def _fetch_geocode_cache(self, cursor, normalized_address: str) -> GeocodeResult | None:
+        cursor.execute(
+            """
+SELECT status, normalized_address, lat, lng, provider, place_id, error_message
+FROM dbo.address_geocode_cache
+WHERE cache_key = ?
+""",
+            geocode_cache_key(normalized_address),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return GeocodeResult(
+            status=str(row[0] or GEOCODE_PENDING),
+            normalized_address=str(row[1] or normalized_address),
+            lat=optional_float(row[2]),
+            lng=optional_float(row[3]),
+            provider=row[4],
+            place_id=row[5],
+            error_message=row[6],
+        )
+
+    def _upsert_geocode_cache(self, cursor, address: str, result: GeocodeResult) -> None:
+        normalized = result.normalized_address or normalize_address(address)
+        cursor.execute(
+            """
+MERGE dbo.address_geocode_cache AS target
+USING (
+    SELECT ? AS cache_key
+) AS source
+ON target.cache_key = source.cache_key
+WHEN MATCHED THEN
+    UPDATE SET normalized_address = ?,
+               original_address = ?,
+               provider = ?,
+               place_id = ?,
+               lat = ?,
+               lng = ?,
+               status = ?,
+               error_message = ?,
+               updated_at = SYSDATETIME()
+WHEN NOT MATCHED THEN
+    INSERT (cache_key, normalized_address, original_address, provider, place_id, lat, lng, status, error_message, updated_at)
+    VALUES (source.cache_key, ?, ?, ?, ?, ?, ?, ?, ?, SYSDATETIME());
+""",
+            geocode_cache_key(normalized),
+            normalized,
+            address,
+            result.provider,
+            result.place_id,
+            result.lat,
+            result.lng,
+            result.status,
+            result.error_message,
+            normalized,
+            address,
+            result.provider,
+            result.place_id,
+            result.lat,
+            result.lng,
+            result.status,
+            result.error_message,
+        )
+
+    def _update_delivery_geocode(self, cursor, delivery_id: str, result: GeocodeResult) -> None:
+        cursor.execute(
+            """
+UPDATE dbo.deliveries
+SET normalized_address = ?,
+    geocode_lat = ?,
+    geocode_lng = ?,
+    geocode_status = ?,
+    geocode_provider = ?,
+    geocode_place_id = ?,
+    geocode_updated_at = ?,
+    geocode_error = ?
+WHERE id = ?
+""",
+            result.normalized_address,
+            result.lat,
+            result.lng,
+            result.status,
+            result.provider,
+            result.place_id,
+            datetime.now().replace(microsecond=0),
+            result.error_message,
+            delivery_id,
+        )
+
     def _insert_delivery(self, cursor, record: dict[str, Any]) -> None:
         record = normalize_delivery_record(record)
         cursor.execute(
             """
 INSERT INTO dbo.deliveries (
     id, sheet, excel_row, seq, vehicle_no, vehicle_no_normalized, driver,
-    delivery_date, date_folder, customer, company, invoice_no, status,
+    delivery_date, date_folder, customer, address, normalized_address,
+    geocode_lat, geocode_lng, geocode_status, geocode_provider,
+    geocode_place_id, geocode_updated_at, geocode_error,
+    company, invoice_no, status,
     photo_path, photo_updated_at, updated_at, deleted_at, deleted_by
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """,
             record["id"],
             record.get("sheet") or "",
@@ -764,6 +1027,15 @@ INSERT INTO dbo.deliveries (
             record.get("delivery_date"),
             record.get("date_folder") or "",
             record.get("customer") or "",
+            record.get("address") or "",
+            record.get("normalized_address"),
+            record.get("geocode_lat"),
+            record.get("geocode_lng"),
+            record.get("geocode_status") or GEOCODE_PENDING,
+            record.get("geocode_provider"),
+            record.get("geocode_place_id"),
+            to_datetime(record.get("geocode_updated_at")),
+            record.get("geocode_error"),
             record.get("company") or "",
             record.get("invoice_no") or "",
             record.get("status"),
@@ -789,6 +1061,15 @@ SET id = ?,
     delivery_date = ?,
     date_folder = ?,
     customer = ?,
+    address = ?,
+    normalized_address = ?,
+    geocode_lat = ?,
+    geocode_lng = ?,
+    geocode_status = ?,
+    geocode_provider = ?,
+    geocode_place_id = ?,
+    geocode_updated_at = ?,
+    geocode_error = ?,
     company = ?,
     invoice_no = ?,
     status = ?,
@@ -809,6 +1090,15 @@ WHERE id = ?
             record.get("delivery_date"),
             record.get("date_folder") or "",
             record.get("customer") or "",
+            record.get("address") or "",
+            record.get("normalized_address"),
+            record.get("geocode_lat"),
+            record.get("geocode_lng"),
+            record.get("geocode_status") or GEOCODE_PENDING,
+            record.get("geocode_provider"),
+            record.get("geocode_place_id"),
+            to_datetime(record.get("geocode_updated_at")),
+            record.get("geocode_error"),
             record.get("company") or "",
             record.get("invoice_no") or "",
             record.get("status"),
@@ -821,6 +1111,7 @@ WHERE id = ?
         )
 
     def _update_imported_delivery(self, cursor, record: dict[str, Any]) -> None:
+        record = normalize_delivery_record(record)
         cursor.execute(
             """
 UPDATE dbo.deliveries
@@ -834,6 +1125,15 @@ SET id = ?,
     delivery_date = ?,
     date_folder = ?,
     customer = ?,
+    address = ?,
+    normalized_address = ?,
+    geocode_lat = ?,
+    geocode_lng = ?,
+    geocode_status = ?,
+    geocode_provider = ?,
+    geocode_place_id = ?,
+    geocode_updated_at = ?,
+    geocode_error = ?,
     company = ?,
     updated_at = ?
 WHERE invoice_no = ?
@@ -849,6 +1149,15 @@ WHERE invoice_no = ?
             record.get("delivery_date"),
             record.get("date_folder") or "",
             record.get("customer") or "",
+            record.get("address") or "",
+            record.get("normalized_address"),
+            record.get("geocode_lat"),
+            record.get("geocode_lng"),
+            record.get("geocode_status") or GEOCODE_PENDING,
+            record.get("geocode_provider"),
+            record.get("geocode_place_id"),
+            to_datetime(record.get("geocode_updated_at")),
+            record.get("geocode_error"),
             record.get("company") or "",
             datetime.now().replace(microsecond=0),
             record.get("invoice_no") or "",
@@ -1153,11 +1462,17 @@ def row_to_delivery(row) -> dict[str, Any]:
     record = dict(zip(DELIVERY_FIELDS, row))
     record["row"] = int(record.get("row") or 0)
     record["seq"] = int(record.get("seq") or 0)
+    record["geocode_lat"] = optional_float(record.get("geocode_lat"))
+    record["geocode_lng"] = optional_float(record.get("geocode_lng"))
     return record
 
 
 def public_delivery(record: dict[str, Any]) -> dict[str, Any]:
     status = record.get("status")
+    geocode_fields = default_geocode_fields(record.get("address", ""))
+    for field in GEOCODE_FIELDS:
+        if record.get(field) is not None:
+            geocode_fields[field] = record.get(field)
     return {
         "id": record["id"],
         "seq": record["seq"],
@@ -1166,8 +1481,10 @@ def public_delivery(record: dict[str, Any]) -> dict[str, Any]:
         "delivery_date": record["delivery_date"],
         "date_folder": record["date_folder"],
         "customer": record["customer"],
+        "address": record.get("address", ""),
         "company": record["company"],
         "invoice_no": record["invoice_no"],
+        **geocode_fields,
         "status": status,
         "status_label": STATUS_LABELS.get(status, "未達交"),
         "has_photo": bool(record.get("photo_path")),
@@ -1201,10 +1518,27 @@ def normalize_delivery_record(record: dict[str, Any]) -> dict[str, Any]:
     )
     normalized["driver"] = str(normalized.get("driver") or "")
     normalized["customer"] = str(normalized.get("customer") or "")
+    normalized["address"] = str(normalized.get("address") or "")
+    geocode_defaults = default_geocode_fields(normalized["address"])
+    for field, value in geocode_defaults.items():
+        if normalized.get(field) is None:
+            normalized[field] = value
+    normalized["geocode_lat"] = optional_float(normalized.get("geocode_lat"))
+    normalized["geocode_lng"] = optional_float(normalized.get("geocode_lng"))
     normalized["company"] = str(normalized.get("company") or "")
     normalized["invoice_no"] = str(normalized.get("invoice_no") or "")
     normalized["sheet"] = str(normalized.get("sheet") or "")
     return normalized
+
+
+def optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def geocode_cache_key(normalized_address: str) -> str:
+    return hashlib.sha256(normalized_address.encode("utf-8")).hexdigest()
 
 
 def to_datetime(value: Any) -> datetime | None:

@@ -104,6 +104,7 @@
             </label>
           </div>
           <div class="summary-actions">
+            <button id="smartPhotoButton" class="secondary-button" type="button">智慧達交</button>
             <button id="refreshButton" class="secondary-button" type="button">重新整理</button>
           </div>
         </section>
@@ -133,8 +134,27 @@
       </div>
     </dialog>
 
+    <dialog id="smartPhotoDialog" class="smart-photo-dialog">
+      <div class="dialog-header">
+        <strong id="smartPhotoTitle">智慧拍照</strong>
+        <button id="closeSmartPhotoButton" class="ghost-button" type="button">關閉</button>
+      </div>
+      <div class="smart-photo-status" role="group" aria-label="達交狀態">
+        <label class="toggle-row">
+          <input id="smartPhotoStatusNormal" type="radio" name="smartPhotoStatus" value="normal" checked />
+          <span>正常達交</span>
+        </label>
+        <label class="toggle-row">
+          <input id="smartPhotoStatusAbnormal" type="radio" name="smartPhotoStatus" value="abnormal" />
+          <span>異常達交</span>
+        </label>
+      </div>
+      <div id="smartPhotoCandidates" class="smart-photo-candidates"></div>
+    </dialog>
+
     <script src="/static/photo-viewer.js"></script>
     <script src="/static/offline-upload-queue.js"></script>
+    <script src="/static/smart-photo.js"></script>
     <script src="/static/pwa.js" defer></script>
     <script src="/static/app.js" defer></script>
   </body>

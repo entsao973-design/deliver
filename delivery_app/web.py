@@ -4,12 +4,14 @@ import json
 import mimetypes
 import re
 import secrets
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .auth import UserStore
+from .geocoding import make_geocoder
 from .repository import DeliveryRepository
 
 
@@ -25,6 +27,7 @@ class RequestError(Exception):
 
 
 def create_repository(config: dict):
+    geocoder = make_geocoder(config.get("geocoding", {}))
     if is_sqlserver_backend(config):
         from .sqlserver_store import SqlServerRepository
 
@@ -33,6 +36,7 @@ def create_repository(config: dict):
             config.get("excel_path"),
             config.get("photo_root", "storage/photos"),
             config.get("archive_root", "data/archives"),
+            geocoder=geocoder,
         )
 
     return DeliveryRepository(
@@ -40,6 +44,7 @@ def create_repository(config: dict):
         config.get("data_file", "data/deliveries.json"),
         config.get("photo_root", "storage/photos"),
         config.get("archive_root", "data/archives"),
+        geocoder=geocoder,
     )
 
 
@@ -65,6 +70,25 @@ class DeliveryServer:
         self.upload_dir = Path(config.get("upload_dir", "data/uploads"))
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.sessions: dict[str, dict] = {}
+        self._geocode_thread: threading.Thread | None = None
+        self._start_geocoding_job()
+
+    def _start_geocoding_job(self) -> None:
+        if not hasattr(self.repo, "geocode_pending"):
+            return
+        if not getattr(getattr(self.repo, "geocoder", None), "enabled", False):
+            return
+        if self._geocode_thread and self._geocode_thread.is_alive():
+            return
+
+        def run() -> None:
+            try:
+                self.repo.geocode_pending()
+            except Exception as exc:
+                print(f"Geocoding job failed: {exc}")
+
+        self._geocode_thread = threading.Thread(target=run, daemon=True)
+        self._geocode_thread.start()
 
     def handler_class(self):
         app = self
@@ -266,6 +290,7 @@ class DeliveryServer:
                 except (OSError, ValueError) as exc:
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
                     return
+                app._start_geocoding_job()
                 self._send_json({"ok": True})
 
             def _handle_admin_import(self) -> None:
@@ -295,6 +320,7 @@ class DeliveryServer:
                 finally:
                     upload_path.unlink(missing_ok=True)
 
+                app._start_geocoding_job()
                 self._send_json({"ok": True, "summary": summary})
 
             def _handle_admin_deliveries(self, parsed) -> None:
@@ -510,7 +536,7 @@ class DeliveryServer:
 
 
 def load_config(path: str | Path) -> dict:
-    with Path(path).open("r", encoding="utf-8") as file:
+    with Path(path).open("r", encoding="utf-8-sig") as file:
         return json.load(file)
 
 

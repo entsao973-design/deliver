@@ -8,6 +8,8 @@ from typing import Any
 
 import openpyxl
 
+from .geocoding import default_geocode_fields
+
 
 def clean_text(value: Any) -> str:
     if value is None:
@@ -83,6 +85,7 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
             current_seq: int | None = None
             current_customer = ""
             current_company = ""
+            current_address = ""
 
             for row_index in range(5, sheet.max_row + 1):
                 seq_value = merged_sequences.get(row_index, sheet.cell(row_index, 1).value)
@@ -94,15 +97,20 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
                     current_seq = seq
                     current_customer = ""
                     current_company = ""
+                    current_address = ""
 
                 customer_value = clean_text(sheet.cell(row_index, 2).value)
+                address_value = clean_text(sheet.cell(row_index, 3).value)
                 company_value = clean_text(sheet.cell(row_index, 9).value)
                 if customer_value:
                     current_customer = customer_value
+                if address_value:
+                    current_address = address_value
                 if company_value:
                     current_company = company_value
 
                 customer = current_customer
+                address = current_address
                 company = current_company
                 invoice_no = clean_text(sheet.cell(row_index, 11).value)
                 if not invoice_no:
@@ -122,6 +130,8 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
                     "delivery_date": delivery_date.isoformat(),
                     "date_folder": date_folder,
                     "customer": customer,
+                    "address": address,
+                    **default_geocode_fields(address),
                     "company": company,
                     "invoice_no": invoice_no,
                     "status": None,

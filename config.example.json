@@ -19,6 +19,14 @@
   "upload_dir": "data\\uploads",
   "archive_root": "data\\archives",
   "photo_root": "storage\\photos",
+  "geocoding": {
+    "enabled": false,
+    "provider": "google",
+    "api_key_env": "GOOGLE_GEOCODING_API_KEY",
+    "country_hint": "Taiwan",
+    "country_code": "TW",
+    "timeout_seconds": 5
+  },
   "host": "0.0.0.0",
   "port": 8000,
   "users": [

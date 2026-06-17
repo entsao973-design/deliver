@@ -8,6 +8,8 @@ from pathlib import Path
 import openpyxl
 
 from delivery_app.excel_importer import import_deliveries
+from delivery_app.geocoding import GEOCODE_EMPTY, GEOCODE_FAILED, GEOCODE_PENDING, GEOCODE_SUCCESS
+from delivery_app.geocoding import GeocodeResult, StaticGeocoder
 from delivery_app.auth import UserStore
 from delivery_app.repository import DeliveryRepository
 
@@ -33,6 +35,7 @@ def build_delivery_workbook(path: Path) -> None:
 
     sheet.merge_cells("A5:A6")
     sheet["A5"] = 1
+    sheet["C5"] = "台北市中山區測試路1號"
     sheet["B5"] = "合併客戶"
     sheet["I5"] = "公司甲"
     sheet["K5"] = "INV-MERGED-1"
@@ -41,6 +44,7 @@ def build_delivery_workbook(path: Path) -> None:
     sheet["A7"] = "備註"
     sheet["K7"] = "IGNORED"
     sheet["A8"] = 2
+    sheet["C8"] = "新北市板橋區測試路2號"
     sheet["B8"] = "第二客戶"
     sheet["I8"] = "公司丙"
     sheet["K8"] = "INV-2"
@@ -167,6 +171,156 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertEqual(invoices["INV-MERGED-2"]["customer"], "合併客戶")
             self.assertEqual(invoices["INV-MERGED-2"]["company"], "公司乙")
             self.assertEqual(invoices["INV-3"]["seq"], 3)
+
+    def test_imports_address_from_excel_rows(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            build_delivery_workbook(excel_path)
+
+            result = import_deliveries(excel_path)
+            invoices = {record["invoice_no"]: record for record in result["deliveries"]}
+
+            self.assertEqual(invoices["INV-MERGED-1"]["address"], "台北市中山區測試路1號")
+            self.assertEqual(invoices["INV-MERGED-2"]["address"], "台北市中山區測試路1號")
+            self.assertEqual(invoices["INV-2"]["address"], "新北市板橋區測試路2號")
+
+    def test_import_adds_geocode_defaults(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            build_delivery_workbook(excel_path)
+
+            result = import_deliveries(excel_path)
+            invoices = {record["invoice_no"]: record for record in result["deliveries"]}
+
+            self.assertEqual(invoices["INV-MERGED-1"]["geocode_status"], GEOCODE_PENDING)
+            self.assertEqual(invoices["INV-MERGED-1"]["normalized_address"], "台北市中山區測試路1號")
+            self.assertIsNone(invoices["INV-MERGED-1"]["geocode_lat"])
+            self.assertIsNone(invoices["INV-MERGED-1"]["geocode_lng"])
+            self.assertEqual(invoices["INV-3"]["geocode_status"], GEOCODE_EMPTY)
+
+    def test_repository_public_records_include_address_and_geocode_fields(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            build_delivery_workbook(excel_path)
+
+            repo = DeliveryRepository(str(excel_path), str(Path(temp_dir) / "deliveries.json"), str(Path(temp_dir) / "photos"))
+            deliveries = repo.list_for_vehicle("TEST-001", include_delivered=True, delivery_date="2026-06-11")
+            by_invoice = {record["invoice_no"]: record for record in deliveries}
+
+            self.assertEqual(by_invoice["INV-MERGED-1"]["address"], "台北市中山區測試路1號")
+            self.assertEqual(by_invoice["INV-MERGED-1"]["geocode_status"], GEOCODE_PENDING)
+            self.assertIsNone(by_invoice["INV-MERGED-1"]["geocode_lat"])
+
+    def test_repository_preserves_geocode_when_address_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_delivery_workbook(excel_path)
+            DeliveryRepository(str(excel_path), str(data_file), str(Path(temp_dir) / "photos"))
+
+            data = json.loads(data_file.read_text(encoding="utf-8"))
+            first = next(record for record in data["deliveries"] if record["invoice_no"] == "INV-MERGED-1")
+            first["geocode_status"] = GEOCODE_SUCCESS
+            first["geocode_lat"] = 25.0478
+            first["geocode_lng"] = 121.5319
+            first["geocode_provider"] = "static"
+            first["geocode_place_id"] = "place-1"
+            first["geocode_updated_at"] = "2026-06-17T09:00:00"
+            data_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+            repo = DeliveryRepository(None, str(data_file), str(Path(temp_dir) / "photos"))
+            repo.import_excel_file(excel_path)
+            refreshed = json.loads(data_file.read_text(encoding="utf-8"))
+            first = next(record for record in refreshed["deliveries"] if record["invoice_no"] == "INV-MERGED-1")
+
+            self.assertEqual(first["geocode_status"], GEOCODE_SUCCESS)
+            self.assertEqual(first["geocode_lat"], 25.0478)
+            self.assertEqual(first["geocode_lng"], 121.5319)
+
+    def test_repository_resets_geocode_when_address_changes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_delivery_workbook(excel_path)
+            DeliveryRepository(str(excel_path), str(data_file), str(Path(temp_dir) / "photos"))
+
+            data = json.loads(data_file.read_text(encoding="utf-8"))
+            first = next(record for record in data["deliveries"] if record["invoice_no"] == "INV-MERGED-1")
+            first["geocode_status"] = GEOCODE_SUCCESS
+            first["geocode_lat"] = 25.0478
+            first["geocode_lng"] = 121.5319
+            data_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+            workbook = openpyxl.load_workbook(excel_path)
+            workbook.active["C5"] = "台北市中山區新地址99號"
+            workbook.save(excel_path)
+            workbook.close()
+
+            repo = DeliveryRepository(None, str(data_file), str(Path(temp_dir) / "photos"))
+            repo.import_excel_file(excel_path)
+            refreshed = json.loads(data_file.read_text(encoding="utf-8"))
+            first = next(record for record in refreshed["deliveries"] if record["invoice_no"] == "INV-MERGED-1")
+
+            self.assertEqual(first["address"], "台北市中山區新地址99號")
+            self.assertEqual(first["geocode_status"], GEOCODE_PENDING)
+            self.assertIsNone(first["geocode_lat"])
+            self.assertIsNone(first["geocode_lng"])
+
+    def test_repository_geocodes_pending_addresses_and_reuses_cache(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_delivery_workbook(excel_path)
+            geocoder = StaticGeocoder({
+                "台北市中山區測試路1號": GeocodeResult.success(
+                    lat=25.0478,
+                    lng=121.5319,
+                    provider="static",
+                    place_id="place-1",
+                ),
+            })
+            repo = DeliveryRepository(
+                str(excel_path),
+                str(data_file),
+                str(Path(temp_dir) / "photos"),
+                geocoder=geocoder,
+            )
+
+            summary = repo.geocode_pending()
+            data = json.loads(data_file.read_text(encoding="utf-8"))
+            by_invoice = {record["invoice_no"]: record for record in data["deliveries"]}
+
+            self.assertEqual(summary["success"], 2)
+            self.assertEqual(by_invoice["INV-MERGED-1"]["geocode_status"], GEOCODE_SUCCESS)
+            self.assertEqual(by_invoice["INV-MERGED-2"]["geocode_status"], GEOCODE_SUCCESS)
+            self.assertEqual(by_invoice["INV-MERGED-1"]["geocode_lat"], 25.0478)
+            self.assertIn("台北市中山區測試路1號", data["geocode_cache"])
+
+    def test_repository_does_not_cache_failed_geocoding_results(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_delivery_workbook(excel_path)
+            geocoder = StaticGeocoder({
+                "台北市中山區測試路1號": GeocodeResult(
+                    status=GEOCODE_FAILED,
+                    normalized_address="台北市中山區測試路1號",
+                    provider="static",
+                    error_message="temporary failure",
+                ),
+            })
+            repo = DeliveryRepository(
+                str(excel_path),
+                str(data_file),
+                str(Path(temp_dir) / "photos"),
+                geocoder=geocoder,
+            )
+
+            summary = repo.geocode_pending()
+            data = json.loads(data_file.read_text(encoding="utf-8"))
+
+            self.assertEqual(summary["failed"], 2)
+            self.assertNotIn("台北市中山區測試路1號", data["geocode_cache"])
 
     def test_vehicle_options_use_latest_delivery_date(self):
         with tempfile.TemporaryDirectory() as temp_dir:
