@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import secrets
 import threading
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -18,6 +20,7 @@ from .scan_ocr import ScanOcrError, decode_scan_image_data_url, make_scan_ocr
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "static"
+IMPORT_LOG = ROOT_DIR / "server.import.log"
 
 
 class RequestError(Exception):
@@ -61,6 +64,19 @@ def create_user_store(config: dict):
 def is_sqlserver_backend(config: dict) -> bool:
     backend = str(config.get("storage_backend") or config.get("database", {}).get("type") or "json").lower()
     return backend in {"sqlserver", "mssql"}
+
+
+def write_import_log(event: str, **fields) -> None:
+    timestamp = datetime.now().isoformat(timespec="seconds")
+    parts = [timestamp, f"pid={os.getpid()}", event]
+    for key, value in fields.items():
+        text = str(value).replace("\r", " ").replace("\n", " ")
+        parts.append(f"{key}={text[:500]}")
+    try:
+        with IMPORT_LOG.open("a", encoding="utf-8") as file:
+            file.write(" | ".join(parts) + "\n")
+    except OSError:
+        return
 
 
 class DeliveryServer:
@@ -325,33 +341,57 @@ class DeliveryServer:
                 self._send_json({"ok": True})
 
             def _handle_admin_import(self) -> None:
-                body = self._read_json(
-                    max_bytes=32 * 1024 * 1024,
-                    too_large_message="Excel 檔案太大，上傳失敗，請縮小檔案後再試",
+                write_import_log(
+                    "request_start",
+                    content_length=self.headers.get("Content-Length", ""),
+                    client=self.client_address[0] if self.client_address else "",
                 )
+                try:
+                    body = self._read_json(
+                        max_bytes=32 * 1024 * 1024,
+                        too_large_message="Excel 檔案太大，上傳失敗，請縮小檔案後再試",
+                    )
+                except RequestError as exc:
+                    write_import_log("read_json_error", status=exc.status.value, message=exc.message)
+                    raise
+                write_import_log("json_loaded", keys=",".join(sorted(body.keys())))
                 if not self._admin_from_body(body):
+                    write_import_log("auth_failed")
                     return
 
                 filename = safe_upload_name(str(body.get("filename", "")))
                 file_data = str(body.get("file_data", ""))
+                write_import_log("payload_ready", filename=filename, file_data_chars=len(file_data))
                 if not filename.lower().endswith((".xlsm", ".xlsx")):
+                    write_import_log("invalid_extension", filename=filename)
                     self._json_error(HTTPStatus.BAD_REQUEST, "只能上傳 Excel 檔案")
                     return
 
                 upload_path = app.upload_dir / filename
                 try:
-                    upload_path.write_bytes(decode_file_data(file_data))
+                    write_import_log("decode_start", filename=filename)
+                    decoded = decode_file_data(file_data)
+                    write_import_log("decode_done", filename=filename, bytes=len(decoded))
+                    upload_path.write_bytes(decoded)
+                    write_import_log("temp_written", filename=filename, path=upload_path)
+                    write_import_log("import_excel_start", filename=filename)
                     summary = app.repo.import_excel_file(upload_path)
+                    write_import_log("import_excel_done", filename=filename, summary=json.dumps(summary, ensure_ascii=False))
                 except ValueError as exc:
+                    write_import_log("value_error", filename=filename, message=str(exc))
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
                     return
                 except Exception as exc:
+                    write_import_log("exception", filename=filename, error_type=type(exc).__name__, message=str(exc))
                     self._json_error(HTTPStatus.BAD_REQUEST, f"Excel 匯入失敗: {exc}")
                     return
                 finally:
                     upload_path.unlink(missing_ok=True)
+                    write_import_log("temp_cleanup", filename=filename)
 
+                write_import_log("geocode_job_start", filename=filename)
                 app._start_geocoding_job()
+                write_import_log("response_success", filename=filename)
                 self._send_json({"ok": True, "summary": summary})
 
             def _handle_driver_scan_invoice_ocr(self) -> None:
