@@ -879,6 +879,36 @@ WHERE id = ?
                     connection.rollback()
                     raise
 
+    def restore_delivery(self, delivery_id: str) -> dict[str, Any]:
+        with self._lock:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                try:
+                    record = self._fetch_by_id(cursor, delivery_id)
+                    if not record:
+                        raise KeyError("Delivery not found")
+                    if not record.get("deleted_at"):
+                        raise ValueError("Only deleted deliveries can be restored")
+
+                    now = datetime.now().replace(microsecond=0)
+                    cursor.execute(
+                        """
+UPDATE dbo.deliveries
+SET deleted_at = NULL,
+    deleted_by = NULL,
+    updated_at = ?
+WHERE id = ?
+""",
+                        now,
+                        delivery_id,
+                    )
+                    connection.commit()
+                    restored = self._fetch_by_id(delivery_id)
+                    return public_delivery(restored)
+                except Exception:
+                    connection.rollback()
+                    raise
+
     def photo_path_for(self, delivery_id: str) -> Path | None:
         record = self._fetch_by_id(delivery_id)
         if not record or not record.get("photo_path"):

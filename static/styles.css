@@ -214,6 +214,45 @@ select:focus {
   margin: 12px 0;
 }
 
+.pwa-update-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 9px 10px;
+  color: #ffffff;
+  background: #17202a;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(18, 32, 46, 0.22);
+}
+
+.pwa-update-banner[hidden] {
+  display: none;
+}
+
+.pwa-update-message {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.pwa-update-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  color: #17202a;
+  background: #ffffff;
+}
+
 .top-bar {
   display: flex;
   align-items: flex-start;
@@ -224,7 +263,7 @@ select:focus {
 
 .delivery-screen .top-bar {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
   gap: 6px;
   padding: 4px 8px;
@@ -280,7 +319,7 @@ select:focus {
 }
 
 .delivery-screen .summary-strip {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(124px, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
   gap: 4px;
   margin-top: 4px;
@@ -323,14 +362,17 @@ select:focus {
   font-size: 10px;
 }
 
-.delivery-screen .top-bar > .ghost-button {
+.top-actions {
+  display: contents;
+}
+
+.top-actions button {
   align-self: stretch;
-  justify-self: end;
   width: 100%;
   height: 100%;
   min-width: 0;
-  padding: 0 4px;
-  font-size: 12px;
+  padding: 0 2px;
+  font-size: 11px;
 }
 
 .summary-strip strong {
@@ -369,10 +411,7 @@ select:focus {
 }
 
 .summary-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: stretch;
-  gap: 4px;
+  display: contents;
 }
 
 .summary-actions button {
@@ -387,9 +426,10 @@ select:focus {
   word-break: keep-all;
 }
 
+#refreshButton,
 #logoutButton,
 #smartPhotoButton,
-#refreshButton {
+#scanInvoiceButton {
   align-self: center;
   height: calc(var(--driver-control-panel-height) * 0.8);
   min-height: calc(var(--driver-control-panel-height) * 0.8);
@@ -428,6 +468,15 @@ select:focus {
 .delivery-screen .message {
   min-height: 20px;
   margin: 4px 0;
+}
+
+.delivery-screen .message,
+.delivery-screen .queue-status {
+  flex: 0 0 auto;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .delivery-screen .message:empty {
@@ -574,7 +623,7 @@ select:focus {
   margin-top: 10px;
   overflow: hidden;
   touch-action: pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   border-radius: 8px;
   background: #111820;
   cursor: default;
@@ -583,6 +632,7 @@ select:focus {
 .inline-photo-viewport.has-zoom,
 .inline-photo-viewport.is-gesturing {
   touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .inline-photo {
@@ -691,6 +741,70 @@ select:focus {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.25;
+}
+
+.scan-invoice-dialog {
+  box-sizing: border-box;
+  width: min(96vw, 560px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26);
+}
+
+.scan-invoice-dialog:not([open]) {
+  display: none;
+}
+
+.scan-invoice-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.scan-invoice-dialog::backdrop {
+  background: rgba(10, 18, 28, 0.54);
+}
+
+.scan-invoice-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 72vh;
+  max-height: 72dvh;
+  overflow: hidden;
+  background: #0b1117;
+}
+
+.scan-invoice-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scan-invoice-frame {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 42%;
+  height: 18%;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.34);
+  pointer-events: none;
+}
+
+.scan-invoice-actions {
+  display: grid;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.scan-invoice-actions button {
+  width: 100%;
 }
 
 .photo-dialog {
@@ -851,7 +965,7 @@ select:focus {
   }
 
   .delivery-screen .top-bar {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
     align-items: stretch;
     gap: 4px;
     padding: 4px 6px;
@@ -866,7 +980,7 @@ select:focus {
   }
 
   .delivery-screen .summary-strip {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(124px, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
     padding: 6px;
   }
 
@@ -884,9 +998,9 @@ select:focus {
     font-size: 12px;
   }
 
-  .delivery-screen .top-bar > .ghost-button {
+  .delivery-screen .top-actions button {
     padding: 0 4px;
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .delivery-screen .delivery-card {

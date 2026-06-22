@@ -8,3 +8,15 @@ storage/
 artifacts/*
 !artifacts/執行紀錄.md
 config.json
+Deliver-vision-ocr 金鑰/
+Deliver-vidion-ocr 金鑰/
+*金鑰*/
+Google Geocoding API KEY.txt
+*API KEY*.txt
+*api key*.txt
+*.pem
+*.p12
+*.pfx
+*.key
+*credentials*.json
+*service-account*.json

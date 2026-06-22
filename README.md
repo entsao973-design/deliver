@@ -118,6 +118,14 @@ Excel 匯入規則：
 
 目前照片先存本機 `storage/photos`。之後若決定使用 Firebase Cloud Storage、Google Drive 或 OneDrive，可以把 `delivery_app/repository.py` 內的照片寫入邏輯替換為雲端上傳；前端流程不需要大改。
 
+## Google Vision 雲端掃號
+
+司機端 `掃號達交` 可啟用 Google Cloud Vision OCR。手機只送出取景框裁切後的小圖到本平台後端，Google 服務帳戶金鑰只放在伺服器端。申請、安裝與設定步驟請見：
+
+```text
+Google Vision OCR 申請與安裝步驟.md
+```
+
 ## SQL Server Express 儲存
 
 系統可使用 SQL Server Express 儲存配送紀錄、帳號、達交狀態與照片路徑；圖檔本身不寫入資料庫，仍以檔案形式保存在 `storage/photos`，封存 ZIP 保存在 `data/archives`。

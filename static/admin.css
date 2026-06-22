@@ -155,14 +155,55 @@
   gap: 8px;
 }
 
-.admin-inline-photo {
+.admin-inline-photo-frame {
   grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-inline-photo-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+}
+
+.photo-rotate-error {
+  color: var(--danger);
+  font-size: 8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.admin-inline-photo-viewport {
+  display: grid;
+  place-items: center;
+  height: 320px;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+  background: #111820;
+}
+
+.admin-inline-photo {
   display: block;
   width: 100%;
-  max-height: 320px;
-  border-radius: 8px;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
-  background: #111820;
+  transform-origin: center center;
+  user-select: none;
+}
+
+.photo-icon-button {
+  width: 38px;
+  min-width: 38px;
+  min-height: 34px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .danger-button {

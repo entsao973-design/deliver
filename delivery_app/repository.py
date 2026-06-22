@@ -446,6 +446,21 @@ class DeliveryRepository:
             self._write_data_unlocked(data)
             self._remove_old_photo_unlocked(photo_path, "")
 
+    def restore_delivery(self, delivery_id: str) -> dict[str, Any]:
+        with self._lock:
+            data = self._read_data_unlocked()
+            record = self._find_record_unlocked(delivery_id, data)
+            if not record:
+                raise KeyError("找不到出貨單")
+            if not record.get("deleted_at"):
+                raise ValueError("只能還原刪除區內的出貨單")
+
+            record["deleted_at"] = None
+            record["deleted_by"] = None
+            record["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            self._write_data_unlocked(data)
+            return self._public_record(record)
+
     def photo_path_for(self, delivery_id: str) -> Path | None:
         with self._lock:
             record = self._find_record_unlocked(delivery_id)

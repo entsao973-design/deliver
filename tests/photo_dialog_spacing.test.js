@@ -21,15 +21,17 @@ test("driver photo dialog header contains title and close button only", () => {
   assert.ok(header.indexOf('id="photoTitle"') < header.indexOf('id="closePhotoButton"'));
 });
 
-test("admin photo dialog header keeps title, zoom tools, and close button in one row", () => {
+test("admin photo dialog header keeps title, rotation tools, and close button in one row", () => {
   assertHeaderLayout(adminHtml, "adminPhotoDialog", "adminPhotoTitle", "closeAdminPhoto");
+  assert.match(adminHtml, /id="adminPhotoRotateLeft"/);
+  assert.match(adminHtml, /id="adminPhotoRotateRight"/);
 });
 
-test("photo dialog does not include reset zoom controls", () => {
+test("photo dialog does not include reset or admin zoom button controls", () => {
   assert.doesNotMatch(driverHtml, /photoZoomReset|ZoomReset|>重設</);
-  assert.doesNotMatch(adminHtml, /adminPhotoZoomReset|ZoomReset|>重設</);
+  assert.doesNotMatch(adminHtml, /adminPhotoZoomReset|adminPhotoZoomOut|adminPhotoZoomIn|ZoomReset|>重設|>縮小<|>放大</);
   assert.doesNotMatch(driverJs, /photoZoomReset|reset:\s*els\.photoZoomReset/);
-  assert.doesNotMatch(adminJs, /adminPhotoZoomReset|reset:\s*adminEls\.photoZoomReset/);
+  assert.doesNotMatch(adminJs, /adminPhotoZoomReset|adminPhotoZoomOut|adminPhotoZoomIn|photoZoomOut|photoZoomIn|reset:\s*adminEls\.photoZoomReset/);
   assert.doesNotMatch(viewerJs, /config\.reset|reset\.addEventListener/);
 });
 
@@ -53,9 +55,27 @@ test("photo dialog title wraps instead of truncating", () => {
   assert.doesNotMatch(titleRule, /white-space:\s*nowrap;/);
 });
 
-test("photo dialog zoom tools are centered and tightly grouped", () => {
+test("photo dialog rotation tools are centered and tightly grouped", () => {
   assert.match(css, /\.photo-tools\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*center;[^}]*gap:\s*4px;/s);
   assert.match(css, /\.photo-tools\s+button\s*\{[^}]*padding:\s*0 8px;/s);
+  assert.match(viewerJs, /const wheelRequiresCtrl = config\.wheelRequiresCtrl === true;/);
+  assert.match(viewerJs, /if \(wheelRequiresCtrl && !event\.ctrlKey\) \{[\s\S]*return;[\s\S]*\}/);
+});
+
+test("photo viewer can scroll a target instead of zooming when ctrl is not pressed", () => {
+  assert.match(viewerJs, /const wheelScrollTarget = config\.wheelScrollTarget \|\| null;/);
+  assert.match(viewerJs, /function resolveWheelScrollTarget\(\) \{[\s\S]*typeof wheelScrollTarget === "function"[\s\S]*wheelScrollTarget\(\)[\s\S]*\}/);
+  assert.match(viewerJs, /if \(wheelRequiresCtrl && !event\.ctrlKey\) \{[\s\S]*const scrollTarget = resolveWheelScrollTarget\(\);[\s\S]*scrollTarget\.scrollBy\(\{ left: event\.deltaX, top: event\.deltaY \}\);[\s\S]*return;[\s\S]*\}/);
+});
+
+test("driver inline photo viewport allows page scrolling until zoomed", () => {
+  const inlineViewportRule = cssRule(".inline-photo-viewport");
+  const zoomRule = cssRule(".inline-photo-viewport.has-zoom,\n.inline-photo-viewport.is-gesturing");
+
+  assert.match(inlineViewportRule, /touch-action:\s*pan-y;/);
+  assert.match(inlineViewportRule, /overscroll-behavior:\s*auto;/);
+  assert.match(zoomRule, /touch-action:\s*none;/);
+  assert.match(zoomRule, /overscroll-behavior:\s*contain;/);
 });
 
 test("photo dialogs are hidden after close and flex only while open", () => {
@@ -104,7 +124,9 @@ function assertHeaderLayout(html, dialogId, titleId, closeId) {
 
   assert.ok(header.indexOf(`id="${titleId}"`) < header.indexOf('class="photo-tools"'));
   assert.ok(header.indexOf('class="photo-tools"') < header.indexOf(`id="${closeId}"`));
-  assert.ok(header.indexOf("ZoomOut") < header.indexOf("ZoomIn"));
+  assert.ok(header.indexOf("RotateLeft") < header.indexOf("RotateRight"));
+  assert.equal(header.indexOf("ZoomOut"), -1);
+  assert.equal(header.indexOf("ZoomIn"), -1);
   assert.equal(header.indexOf("ZoomReset"), -1);
 }
 

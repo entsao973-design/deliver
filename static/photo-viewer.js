@@ -5,6 +5,9 @@ function createPhotoViewer(config) {
   const zoomOut = config.zoomOut;
   const viewport = config.viewport;
   const useWindowResize = config.useWindowResize !== false;
+  const wheelRequiresCtrl = config.wheelRequiresCtrl === true;
+  const wheelScrollTarget = config.wheelScrollTarget || null;
+  const touchScrollTarget = config.touchScrollTarget || null;
   const MAX_SCALE = 5;
   const DOUBLE_TAP_DELAY_MS = 300;
   const DOUBLE_TAP_DISTANCE = 28;
@@ -20,6 +23,7 @@ function createPhotoViewer(config) {
   let suppressTap = false;
   let pinchState = null;
   let touchPinchState = null;
+  let touchScrollState = null;
   let handlingTouchPinch = false;
   const pointers = new Map();
 
@@ -52,7 +56,7 @@ function createPhotoViewer(config) {
     const clamped = clampOffset();
     offsetX = clamped.x;
     offsetY = clamped.y;
-    image.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    image.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale})`;
     image.classList.toggle("zoomed", scale > 1.01);
     viewport.classList.toggle("has-zoom", scale > 1.01);
   }
@@ -77,6 +81,7 @@ function createPhotoViewer(config) {
     pointers.clear();
     pinchState = null;
     touchPinchState = null;
+    touchScrollState = null;
     handlingTouchPinch = false;
     tapStart = null;
     lastTap = null;
@@ -191,6 +196,7 @@ function createPhotoViewer(config) {
       distance: Math.max(1, distance(active[0], active[1])),
       scale,
     };
+    touchScrollState = null;
     handlingTouchPinch = true;
     suppressTap = true;
     tapStart = null;
@@ -200,6 +206,45 @@ function createPhotoViewer(config) {
     viewport.classList.add("is-gesturing");
   }
 
+  function resolveWheelScrollTarget() {
+    if (typeof wheelScrollTarget === "function") {
+      return wheelScrollTarget();
+    }
+    return wheelScrollTarget;
+  }
+
+  function resolveTouchScrollTarget() {
+    if (typeof touchScrollTarget === "function") {
+      return touchScrollTarget();
+    }
+    return touchScrollTarget;
+  }
+
+  function startTouchScroll(event) {
+    if (event.touches.length !== 1 || scale > 1) {
+      touchScrollState = null;
+      return;
+    }
+
+    const scrollTarget = resolveTouchScrollTarget();
+    if (!scrollTarget) {
+      touchScrollState = null;
+      return;
+    }
+
+    touchScrollState = {
+      target: scrollTarget,
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+    };
+  }
+
+  function capturePointer(event) {
+    if (viewport.setPointerCapture) {
+      viewport.setPointerCapture(event.pointerId);
+    }
+  }
+
   if (zoomIn) {
     zoomIn.addEventListener("click", () => setZoom(scale + 0.25));
   }
@@ -207,12 +252,22 @@ function createPhotoViewer(config) {
     zoomOut.addEventListener("click", () => setZoom(scale - 0.25));
   }
   viewport.addEventListener("wheel", (event) => {
+    if (wheelRequiresCtrl && !event.ctrlKey) {
+      const scrollTarget = resolveWheelScrollTarget();
+      if (scrollTarget) {
+        event.preventDefault();
+        scrollTarget.scrollBy({ left: event.deltaX, top: event.deltaY });
+      }
+      return;
+    }
+
     event.preventDefault();
     setZoom(scale + (event.deltaY < 0 ? 0.2 : -0.2), { x: event.clientX, y: event.clientY });
   }, { passive: false });
 
   viewport.addEventListener("touchstart", (event) => {
     if (event.touches.length < 2) {
+      startTouchScroll(event);
       return;
     }
 
@@ -221,6 +276,19 @@ function createPhotoViewer(config) {
   }, { passive: false });
 
   viewport.addEventListener("touchmove", (event) => {
+    if (event.touches.length === 1 && touchScrollState && scale <= 1) {
+      const touch = event.touches[0];
+      const deltaX = touchScrollState.x - touch.clientX;
+      const deltaY = touchScrollState.y - touch.clientY;
+      touchScrollState.x = touch.clientX;
+      touchScrollState.y = touch.clientY;
+      if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+        event.preventDefault();
+        touchScrollState.target.scrollBy({ left: 0, top: deltaY });
+      }
+      return;
+    }
+
     if (event.touches.length < 2 || !touchPinchState) {
       return;
     }
@@ -239,6 +307,7 @@ function createPhotoViewer(config) {
     }
 
     touchPinchState = null;
+    touchScrollState = null;
     handlingTouchPinch = false;
     if (pointers.size === 0 && !dragging) {
       viewport.classList.remove("is-gesturing");
@@ -247,6 +316,7 @@ function createPhotoViewer(config) {
 
   viewport.addEventListener("touchcancel", () => {
     touchPinchState = null;
+    touchScrollState = null;
     handlingTouchPinch = false;
     if (pointers.size === 0 && !dragging) {
       viewport.classList.remove("is-gesturing");
@@ -259,9 +329,9 @@ function createPhotoViewer(config) {
     }
 
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    viewport.setPointerCapture(event.pointerId);
 
     if (pointers.size >= 2) {
+      capturePointer(event);
       suppressTap = true;
       tapStart = null;
       lastTap = null;
@@ -274,6 +344,7 @@ function createPhotoViewer(config) {
     if (scale <= 1) {
       return;
     }
+    capturePointer(event);
     dragging = true;
     viewport.classList.add("is-gesturing");
     startX = event.clientX - offsetX;
@@ -334,7 +405,18 @@ function createPhotoViewer(config) {
   if (dialog) {
     dialog.addEventListener("close", resetView);
   }
-  image.addEventListener("load", () => requestAnimationFrame(resetView));
+  const scheduleResetView = () => requestAnimationFrame(resetView);
+  function scheduleStableResetView() {
+    scheduleResetView();
+    if (typeof image.decode !== "function") {
+      return;
+    }
+    image.decode().then(scheduleResetView).catch(() => undefined);
+  }
+  image.addEventListener("load", scheduleStableResetView);
+  if (image.complete) {
+    scheduleStableResetView();
+  }
   if (useWindowResize) {
     window.addEventListener("resize", resetView);
   }

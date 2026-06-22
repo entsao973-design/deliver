@@ -44,18 +44,24 @@ test("driver login password field has a show-hide toggle", () => {
 
 test("driver delivery controls stay fixed while the list scrolls", () => {
   const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
 
   assert.match(css, /\.delivery-screen\s*\{[\s\S]*--driver-control-panel-height:\s*64px;[\s\S]*height:\s*calc\(100vh - 36px\);[\s\S]*height:\s*calc\(100dvh - 36px\);[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;[\s\S]*overflow:\s*hidden;/);
   assert.match(css, /\.delivery-screen \.top-bar,[\s\S]*\.delivery-screen \.summary-strip\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*height:\s*var\(--driver-control-panel-height\);/);
-  assert.match(css, /\.delivery-screen \.top-bar\s*\{[\s\S]*gap:\s*6px;[\s\S]*padding:\s*4px 8px;/);
+  assert.match(css, /\.delivery-screen \.top-bar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);[\s\S]*gap:\s*6px;[\s\S]*padding:\s*4px 8px;/);
   assert.match(css, /\.delivery-screen button\s*\{[\s\S]*min-height:\s*32px;[\s\S]*white-space:\s*nowrap;[\s\S]*word-break:\s*keep-all;/);
-  assert.match(css, /#logoutButton,\s*#smartPhotoButton,\s*#refreshButton\s*\{[\s\S]*align-self:\s*center;[\s\S]*height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);[\s\S]*min-height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);/);
+  assert.match(css, /\.top-actions\s*\{[\s\S]*display:\s*contents;/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.delivery-screen \.top-bar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
+  assert.match(css, /#refreshButton,\s*#logoutButton,\s*#smartPhotoButton,\s*#scanInvoiceButton\s*\{[\s\S]*align-self:\s*center;[\s\S]*height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);[\s\S]*min-height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);/);
   assert.match(css, /\.delivery-screen select\s*\{[\s\S]*min-height:\s*32px;/);
-  assert.match(css, /\.summary-actions\s*\{[\s\S]*grid-template-columns:\s*1fr 1fr;/);
+  assert.match(css, /\.delivery-screen \.summary-strip\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);[\s\S]*gap:\s*4px;[\s\S]*margin-top:\s*4px;[\s\S]*padding:\s*5px 6px;/);
+  assert.match(css, /\.summary-actions\s*\{[\s\S]*display:\s*contents;/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.delivery-screen \.summary-strip\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
   assert.match(css, /\.summary-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*white-space:\s*nowrap;/);
-  assert.match(css, /\.delivery-screen \.summary-strip\s*\{[\s\S]*gap:\s*4px;[\s\S]*margin-top:\s*4px;[\s\S]*padding:\s*5px 6px;/);
   assert.match(css, /\.delivery-screen \.summary-strip \.toggle-row input\s*\{[\s\S]*width:\s*18px;[\s\S]*min-height:\s*18px;/);
+  assert.match(css, /\.delivery-screen \.message,[\s\S]*\.delivery-screen \.queue-status\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*line-height:\s*1\.35;[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*anywhere;[\s\S]*word-break:\s*break-word;/);
   assert.match(css, /\.delivery-screen \.delivery-list\s*\{[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);
+  assert.match(appJs, /localStorage\.setItem\("delivery_pending_upload_count", String\(state\.pendingUploads\.length\)\);/);
 });
 
 test("driver and admin lists keep cards at content height when few records remain", () => {
@@ -68,31 +74,82 @@ test("driver and admin lists keep cards at content height when few records remai
   assert.match(adminCss, /\.admin-card\s*\{[\s\S]*padding:\s*4px 14px;/);
 });
 
-test("driver smart photo button sits before refresh and loads before the app", () => {
+test("driver scan invoice button replaces refresh in summary and refresh moves to header", () => {
   const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
 
-  assert.match(html, /<button id="smartPhotoButton" class="secondary-button" type="button">智慧達交<\/button>\s*<button id="refreshButton"/);
+  assert.match(html, /<div class="top-actions">\s*<button id="refreshButton" class="secondary-button" type="button">重新整理<\/button>\s*<button id="logoutButton" class="ghost-button" type="button">/);
+  assert.match(html, /<button id="smartPhotoButton" class="secondary-button" type="button">定位達交<\/button>\s*<button id="scanInvoiceButton" class="secondary-button" type="button">掃號達交<\/button>/);
+  assert.match(html, /<input id="scanInvoiceInput" type="file" accept="image\/\*" capture="environment" hidden \/>/);
+  assert.match(html, /<dialog id="scanInvoiceDialog" class="scan-invoice-dialog">/);
+  assert.match(html, /<video id="scanInvoiceVideo" class="scan-invoice-video" autoplay playsinline muted><\/video>/);
+  assert.match(html, /<div id="scanInvoiceFrame" class="scan-invoice-frame" aria-hidden="true"><\/div>/);
+  assert.match(html, /<canvas id="scanInvoiceCanvas" hidden><\/canvas>/);
+  assert.match(html, /<button id="captureScanInvoiceButton" class="primary-button" type="button">/);
+  assert.match(html, /<button id="closeScanInvoiceButton" class="ghost-button" type="button">/);
+  const driverApiScriptIndex = html.indexOf('<script src="/static/driver-api.js"></script>');
+  const driverSmartDeliveryScriptIndex = html.indexOf('<script src="/static/driver-smart-delivery.js"></script>');
   const smartPhotoScriptIndex = html.indexOf('<script src="/static/smart-photo.js"></script>');
+  const scanInvoiceScriptIndex = html.indexOf('<script src="/static/scan-invoice.js"></script>');
+  const driverScanDeliveryScriptIndex = html.indexOf('<script src="/static/driver-scan-delivery.js"></script>');
   const appScriptIndex = html.indexOf('<script src="/static/app.js" defer></script>');
+  assert.notEqual(driverApiScriptIndex, -1);
+  assert.notEqual(driverSmartDeliveryScriptIndex, -1);
   assert.notEqual(smartPhotoScriptIndex, -1);
+  assert.notEqual(scanInvoiceScriptIndex, -1);
+  assert.notEqual(driverScanDeliveryScriptIndex, -1);
+  assert.ok(driverApiScriptIndex < appScriptIndex);
+  assert.ok(smartPhotoScriptIndex < driverSmartDeliveryScriptIndex);
+  assert.ok(driverSmartDeliveryScriptIndex < appScriptIndex);
   assert.ok(smartPhotoScriptIndex < appScriptIndex);
+  assert.ok(scanInvoiceScriptIndex < driverScanDeliveryScriptIndex);
+  assert.ok(driverScanDeliveryScriptIndex < appScriptIndex);
+  assert.match(appJs, /const api = window\.DriverApi\.request;/);
+  assert.match(appJs, /window\.DriverSmartDelivery\.createController/);
+  assert.match(appJs, /window\.DriverScanDelivery\.createController/);
+  assert.match(appJs, /const scanDeliveryController = window\.DriverScanDelivery\.createController\(\{[\s\S]*api,[\s\S]*\}\);/);
   assert.match(appJs, /smartPhotoButton:\s*document\.querySelector\("#smartPhotoButton"\)/);
-  assert.match(appJs, /els\.smartPhotoButton\.addEventListener\("click", handleSmartPhoto\);/);
+  assert.match(appJs, /scanInvoiceButton:\s*document\.querySelector\("#scanInvoiceButton"\)/);
+  assert.match(appJs, /scanInvoiceInput:\s*document\.querySelector\("#scanInvoiceInput"\)/);
+  assert.match(appJs, /scanInvoiceDialog:\s*document\.querySelector\("#scanInvoiceDialog"\)/);
+  assert.match(appJs, /scanInvoiceVideo:\s*document\.querySelector\("#scanInvoiceVideo"\)/);
+  assert.match(appJs, /scanInvoiceFrame:\s*document\.querySelector\("#scanInvoiceFrame"\)/);
+  assert.match(appJs, /scanInvoiceCanvas:\s*document\.querySelector\("#scanInvoiceCanvas"\)/);
+  assert.match(appJs, /captureScanInvoiceButton:\s*document\.querySelector\("#captureScanInvoiceButton"\)/);
+  assert.match(appJs, /closeScanInvoiceButton:\s*document\.querySelector\("#closeScanInvoiceButton"\)/);
+  assert.match(appJs, /els\.smartPhotoButton\.addEventListener\("click", smartDeliveryController\.handleSmartPhoto\);/);
+  assert.match(appJs, /els\.scanInvoiceButton\.addEventListener\("click", scanDeliveryController\.handleScanInvoice\);/);
+  assert.match(appJs, /els\.scanInvoiceInput\.addEventListener\("change", scanDeliveryController\.handleScanInvoiceFileChange\);/);
+  assert.match(appJs, /els\.captureScanInvoiceButton\.addEventListener\("click", scanDeliveryController\.handleCaptureScanInvoice\);/);
+  assert.match(appJs, /els\.closeScanInvoiceButton\.addEventListener\("click", scanDeliveryController\.closeScanInvoiceCamera\);/);
+  assert.doesNotMatch(appJs, /function handleSmartPhoto\(\)/);
+  assert.doesNotMatch(appJs, /function smartPhotoErrorMessage\(error\)/);
+});
+
+test("driver scan invoice camera viewfinder is centered and crops the OCR target", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
+
+  assert.match(css, /\.scan-invoice-dialog\s*\{[\s\S]*width:\s*min\(96vw,\s*560px\);[\s\S]*overflow:\s*hidden;/);
+  assert.match(css, /\.scan-invoice-dialog\[open\]\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;/);
+  assert.match(css, /\.scan-invoice-viewport\s*\{[\s\S]*position:\s*relative;[\s\S]*aspect-ratio:\s*3 \/ 4;[\s\S]*overflow:\s*hidden;/);
+  assert.match(css, /\.scan-invoice-video\s*\{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;[\s\S]*object-fit:\s*cover;/);
+  assert.match(css, /\.scan-invoice-frame\s*\{[\s\S]*position:\s*absolute;[\s\S]*left:\s*10%;[\s\S]*right:\s*10%;[\s\S]*top:\s*42%;[\s\S]*height:\s*18%;[\s\S]*box-shadow:\s*0 0 0 999px/);
 });
 
 test("driver smart photo dialog offers delivery status choices and candidate selection", () => {
   const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+  const smartDeliveryJs = fs.readFileSync(path.join(staticRoot, "driver-smart-delivery.js"), "utf8");
 
   assert.match(html, /<dialog id="smartPhotoDialog" class="smart-photo-dialog">/);
   assert.match(html, /<input id="smartPhotoStatusNormal"[^>]*value="normal"[^>]*checked/);
   assert.match(html, /<input id="smartPhotoStatusAbnormal"[^>]*value="abnormal"/);
   assert.match(html, /<div id="smartPhotoCandidates" class="smart-photo-candidates"><\/div>/);
-  assert.match(appJs, /function handleSmartPhoto\(\)/);
-  assert.match(appJs, /navigator\.geolocation\.getCurrentPosition/);
-  assert.match(appJs, /window\.SmartPhoto\.outcomeForPosition/);
-  assert.match(appJs, /startCapture\(candidate\.delivery, selectedSmartPhotoStatus\(\)\)/);
+  assert.match(appJs, /smartDeliveryController\.handleSmartPhoto/);
+  assert.match(smartDeliveryJs, /function handleSmartPhoto\(\)/);
+  assert.match(smartDeliveryJs, /root\.navigator\.geolocation\.getCurrentPosition/);
+  assert.match(smartDeliveryJs, /root\.SmartPhoto\.outcomeForPosition/);
+  assert.match(smartDeliveryJs, /startCapture\(candidate\.delivery, selectedSmartPhotoStatus\(\)\)/);
 });
 
 test("driver inline photos use a fixed zoomable viewport", () => {
@@ -105,7 +162,7 @@ test("driver inline photos use a fixed zoomable viewport", () => {
   assert.match(css, /\.inline-photo\s*\{[\s\S]*max-width:\s*100%;[\s\S]*max-height:\s*100%;[\s\S]*transform-origin:\s*center center;/);
   assert.doesNotMatch(css, /\.inline-photo\s*\{[\s\S]*max-height:\s*220px;/);
   assert.match(appJs, /const viewport = document\.createElement\("div"\);[\s\S]*viewport\.className = "inline-photo-viewport";[\s\S]*viewport\.append\(photo\);[\s\S]*card\.insertBefore\(viewport, card\.querySelector\("\.actions"\)\);/);
-  assert.match(appJs, /createPhotoViewer\(\{[\s\S]*viewport,[\s\S]*image: photo,[\s\S]*useWindowResize: false,[\s\S]*\}\);/);
+  assert.match(appJs, /createPhotoViewer\(\{[\s\S]*viewport,[\s\S]*image: photo,[\s\S]*useWindowResize: false,[\s\S]*touchScrollTarget: \(\) => viewport\.closest\("\.delivery-list"\),[\s\S]*\}\);/);
   assert.doesNotMatch(appJs, /card\.insertBefore\(photo, card\.querySelector\("\.actions"\)\);/);
   assert.match(photoViewerJs, /const dialog = config\.dialog \|\| null;/);
   assert.match(photoViewerJs, /const MAX_SCALE = 5;/);
@@ -133,6 +190,80 @@ test("admin page has its own account password login without vehicle field", () =
   assert.match(html, /<main id="adminApp" class="admin-shell" hidden>/);
   assert.match(adminJs, /adminEls\.loginForm\.addEventListener\("submit", handleAdminLogin\)/);
   assert.match(adminJs, /body:\s*\{\s*username:\s*adminEls\.loginUsername\.value\.trim\(\),\s*password:\s*adminEls\.loginPassword\.value/s);
+});
+
+test("admin photo dialog supports ctrl wheel zoom and immediate rotate save", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+  const adminCss = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const webPy = fs.readFileSync(path.join(root, "delivery_app", "web.py"), "utf8");
+
+  assert.match(html, /<button id="adminPhotoRotateLeft" class="secondary-button photo-icon-button" type="button" aria-label="左轉90度" title="左轉90度">\s*<span aria-hidden="true">&#8634;<\/span>\s*<\/button>/);
+  assert.match(html, /<button id="adminPhotoRotateRight" class="secondary-button photo-icon-button" type="button" aria-label="右轉90度" title="右轉90度">\s*<span aria-hidden="true">&#8635;<\/span>\s*<\/button>/);
+  assert.match(html, /<span id="adminPhotoRotateError" class="photo-rotate-error" aria-live="polite"><\/span>/);
+  assert.doesNotMatch(html, /adminPhotoZoomOut|adminPhotoZoomIn|>縮小<|>放大</);
+  assert.match(adminJs, /photoRotateLeft:\s*document\.querySelector\("#adminPhotoRotateLeft"\)/);
+  assert.match(adminJs, /photoRotateRight:\s*document\.querySelector\("#adminPhotoRotateRight"\)/);
+  assert.match(adminJs, /photoRotateError:\s*document\.querySelector\("#adminPhotoRotateError"\)/);
+  assert.doesNotMatch(adminJs, /photoZoomIn|photoZoomOut|adminPhotoZoomIn|adminPhotoZoomOut/);
+  assert.match(adminJs, /wheelRequiresCtrl:\s*true/);
+  assert.match(adminJs, /adminEls\.photoRotateLeft\.addEventListener\("click", \(\) => rotateAdminPhoto\(-90, adminEls\.photoRotateLeft\)\);/);
+  assert.match(adminJs, /adminEls\.photoRotateRight\.addEventListener\("click", \(\) => rotateAdminPhoto\(90, adminEls\.photoRotateRight\)\);/);
+  assert.match(adminJs, /canvas\.toDataURL\("image\/jpeg", 0\.9\)/);
+  assert.match(adminJs, /saveRotatedAdminPhoto\(adminState\.photoDelivery, adminEls\.photoPreview, degrees\)/);
+  assert.match(adminJs, /adminApi\(`\/api\/admin\/deliveries\/\$\{delivery\.id\}\/photo`/);
+  assert.match(adminJs, /await runPhotoRotateWithFailureMessage\(button, adminEls\.photoRotateError, async \(\) => \{/);
+  assert.doesNotMatch(adminJs, /照片旋轉已儲存|儲存中/);
+  assert.match(adminCss, /\.photo-rotate-error\s*\{[\s\S]*font-size:\s*8px;[\s\S]*white-space:\s*nowrap;/);
+  assert.match(webPy, /parsed\.path\.startswith\("\/api\/admin\/deliveries\/"\) and parsed\.path\.endswith\("\/photo"\)/);
+  assert.match(webPy, /def _handle_admin_photo_save\(self, delivery_id: str\)/);
+});
+
+test("admin clears status messages on login and query", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /function showAdminApp\(\) \{[\s\S]*clearAdminMessage\(\);[\s\S]*\}/);
+  assert.match(adminJs, /async function applyAdminFilters\(deleted\) \{[\s\S]*clearAdminMessage\(\);[\s\S]*await loadOptions\(deleted\);/);
+  assert.match(adminJs, /function clearAdminMessage\(\) \{[\s\S]*setAdminMessage\("", false\);[\s\S]*\}/);
+});
+
+test("admin deleted deliveries can be restored before permanent delete", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+  const webPy = fs.readFileSync(path.join(root, "delivery_app", "web.py"), "utf8");
+
+  assert.match(adminJs, /if \(deleted\) \{\s*actions\.append\(makeAdminButton\("還原", "secondary-button", \(button\) => restoreDelivery\(delivery, button\)\)\);\s*actions\.append\(makeAdminButton\("永久刪除"/);
+  assert.match(adminJs, /async function restoreDelivery\(delivery, button\) \{/);
+  assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "還原中\.\.\.",/);
+  assert.match(adminJs, /adminApi\(`\/api\/admin\/deliveries\/\$\{delivery\.id\}\/restore`/);
+  assert.match(webPy, /parsed\.path\.startswith\("\/api\/admin\/deliveries\/"\) and parsed\.path\.endswith\("\/restore"\)/);
+  assert.match(webPy, /def _handle_admin_restore\(self, delivery_id: str\)/);
+});
+
+test("admin inline photos are zoomable and support immediate icon rotate save", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+  const adminCss = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+
+  assert.match(adminJs, /card\.append\(createAdminInlinePhoto\(delivery\)\);/);
+  assert.match(adminJs, /function createAdminInlinePhoto\(delivery\) \{/);
+  assert.match(adminJs, /wrapper\.className = "admin-inline-photo-frame";/);
+  assert.match(adminJs, /toolbar\.className = "admin-inline-photo-toolbar";/);
+  assert.match(adminJs, /viewport\.className = "admin-inline-photo-viewport";/);
+  assert.match(adminJs, /const rotateError = document\.createElement\("span"\);[\s\S]*rotateError\.className = "photo-rotate-error";/);
+  assert.match(adminJs, /toolbar\.append\(rotateLeft, rotateRight, rotateError\);/);
+  assert.match(adminJs, /createPhotoViewer\(\{[\s\S]*viewport,[\s\S]*image: photo,[\s\S]*useWindowResize: false,[\s\S]*wheelRequiresCtrl: true,[\s\S]*wheelScrollTarget: \(\) => viewport\.closest\("\.admin-list"\),[\s\S]*touchScrollTarget: \(\) => viewport\.closest\("\.admin-list"\),[\s\S]*\}\);/);
+  assert.match(adminJs, /makePhotoIconButton\("左轉90度", "↺", \(button\) => rotateAdminInlinePhoto\(delivery, photo, -90, button, rotateError\)\)/);
+  assert.match(adminJs, /makePhotoIconButton\("右轉90度", "↻", \(button\) => rotateAdminInlinePhoto\(delivery, photo, 90, button, rotateError\)\)/);
+  assert.match(adminJs, /async function rotateAdminInlinePhoto\(delivery, image, degrees, button, errorEl\) \{/);
+  assert.match(adminJs, /await runPhotoRotateWithFailureMessage\(button, errorEl, async \(\) => \{/);
+  assert.match(adminJs, /await saveRotatedAdminPhoto\(delivery, image, degrees\);/);
+  assert.match(adminJs, /function runPhotoRotateWithFailureMessage\(button, errorEl, operation\) \{/);
+  assert.match(adminJs, /function setPhotoRotateError\(errorEl, message\) \{/);
+  assert.doesNotMatch(adminJs, /admin-inline-photo-saving|runInlinePhotoRotateWithStatus/);
+  assert.match(adminCss, /\.admin-inline-photo-frame\s*\{[\s\S]*grid-column:\s*1 \/ -1;[\s\S]*display:\s*grid;[\s\S]*gap:\s*4px;/);
+  assert.match(adminCss, /\.admin-inline-photo-toolbar\s*\{[\s\S]*justify-content:\s*center;[\s\S]*align-items:\s*center;/);
+  assert.match(adminCss, /\.photo-rotate-error\s*\{[\s\S]*font-size:\s*8px;[\s\S]*white-space:\s*nowrap;/);
+  assert.match(adminCss, /\.admin-inline-photo-viewport\s*\{[\s\S]*height:\s*320px;[\s\S]*overflow:\s*hidden;[\s\S]*touch-action:\s*none;/);
+  assert.match(adminCss, /\.photo-icon-button\s*\{[\s\S]*width:\s*38px;[\s\S]*font-size:\s*20px;/);
 });
 
 test("admin login password field has a show-hide toggle", () => {
@@ -163,6 +294,7 @@ test("admin login starts at the top while staying horizontally centered", () => 
 test("admin app header and filter controls use compact spacing", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
   assert.doesNotMatch(html, /管理環境/);
   assert.doesNotMatch(html, /<header class="admin-header">/);
@@ -179,6 +311,11 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.match(css, /\.admin-shell\s*\{[\s\S]*padding:\s*8px;/);
   assert.match(css, /\.admin-list\s*\{[\s\S]*gap:\s*4px;/);
   assert.match(css, /\.admin-card\s*\{[\s\S]*padding:\s*4px 14px;/);
+  assert.match(html, /<script src="\/static\/admin-operation-state\.js"><\/script>\s*<script src="\/static\/admin-api\.js"><\/script>/);
+  assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(adminEls\.uploadExcel, "匯入中\.\.\.",/);
+  assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(adminEls\.archivePhotos, "封存中\.\.\.",/);
+  assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "刪除中\.\.\.",/);
+  assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "永久刪除中\.\.\.",/);
 });
 
 test("admin list controls stay sticky above scrolling lists", () => {

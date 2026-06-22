@@ -79,7 +79,10 @@
               <select id="dateSelect"></select>
             </label>
           </section>
-          <button id="logoutButton" class="ghost-button" type="button">登出</button>
+          <div class="top-actions">
+            <button id="refreshButton" class="secondary-button" type="button">重新整理</button>
+            <button id="logoutButton" class="ghost-button" type="button">登出</button>
+          </div>
         </header>
 
         <section class="summary-strip">
@@ -104,8 +107,8 @@
             </label>
           </div>
           <div class="summary-actions">
-            <button id="smartPhotoButton" class="secondary-button" type="button">智慧達交</button>
-            <button id="refreshButton" class="secondary-button" type="button">重新整理</button>
+            <button id="smartPhotoButton" class="secondary-button" type="button">定位達交</button>
+            <button id="scanInvoiceButton" class="secondary-button" type="button">掃號達交</button>
           </div>
         </section>
 
@@ -120,6 +123,22 @@
     </main>
 
     <input id="photoInput" type="file" accept="image/*" capture="environment" hidden />
+    <input id="scanInvoiceInput" type="file" accept="image/*" capture="environment" hidden />
+
+    <dialog id="scanInvoiceDialog" class="scan-invoice-dialog">
+      <div class="dialog-header">
+        <strong>掃號達交</strong>
+        <button id="closeScanInvoiceButton" class="ghost-button" type="button">關閉</button>
+      </div>
+      <div id="scanInvoiceViewport" class="scan-invoice-viewport">
+        <video id="scanInvoiceVideo" class="scan-invoice-video" autoplay playsinline muted></video>
+        <div id="scanInvoiceFrame" class="scan-invoice-frame" aria-hidden="true"></div>
+      </div>
+      <div class="scan-invoice-actions">
+        <button id="captureScanInvoiceButton" class="primary-button" type="button">拍照掃號</button>
+      </div>
+      <canvas id="scanInvoiceCanvas" hidden></canvas>
+    </dialog>
 
     <dialog id="photoDialog" class="photo-dialog">
       <div class="dialog-header">
@@ -136,7 +155,7 @@
 
     <dialog id="smartPhotoDialog" class="smart-photo-dialog">
       <div class="dialog-header">
-        <strong id="smartPhotoTitle">智慧拍照</strong>
+        <strong id="smartPhotoTitle">定位達交</strong>
         <button id="closeSmartPhotoButton" class="ghost-button" type="button">關閉</button>
       </div>
       <div class="smart-photo-status" role="group" aria-label="達交狀態">
@@ -154,7 +173,11 @@
 
     <script src="/static/photo-viewer.js"></script>
     <script src="/static/offline-upload-queue.js"></script>
+    <script src="/static/driver-api.js"></script>
     <script src="/static/smart-photo.js"></script>
+    <script src="/static/driver-smart-delivery.js"></script>
+    <script src="/static/scan-invoice.js"></script>
+    <script src="/static/driver-scan-delivery.js"></script>
     <script src="/static/pwa.js" defer></script>
     <script src="/static/app.js" defer></script>
   </body>

@@ -5,6 +5,7 @@ const adminState = {
   uploadFiles: [],
   archives: [],
   showAllPhotos: false,
+  photoDelivery: null,
 };
 
 const adminEls = {
@@ -58,8 +59,9 @@ const adminEls = {
   photoTitle: document.querySelector("#adminPhotoTitle"),
   photoPreview: document.querySelector("#adminPhotoPreview"),
   photoViewport: document.querySelector("#adminPhotoViewport"),
-  photoZoomIn: document.querySelector("#adminPhotoZoomIn"),
-  photoZoomOut: document.querySelector("#adminPhotoZoomOut"),
+  photoRotateLeft: document.querySelector("#adminPhotoRotateLeft"),
+  photoRotateRight: document.querySelector("#adminPhotoRotateRight"),
+  photoRotateError: document.querySelector("#adminPhotoRotateError"),
   closePhoto: document.querySelector("#closeAdminPhoto"),
 };
 
@@ -67,8 +69,7 @@ createPhotoViewer({
   dialog: adminEls.photoDialog,
   image: adminEls.photoPreview,
   viewport: adminEls.photoViewport,
-  zoomIn: adminEls.photoZoomIn,
-  zoomOut: adminEls.photoZoomOut,
+  wheelRequiresCtrl: true,
 });
 
 adminEls.logout.addEventListener("click", () => {
@@ -103,6 +104,8 @@ adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
 adminEls.downloadArchives.addEventListener("click", downloadSelectedArchives);
 adminEls.saveUser.addEventListener("click", saveUser);
+adminEls.photoRotateLeft.addEventListener("click", () => rotateAdminPhoto(-90, adminEls.photoRotateLeft));
+adminEls.photoRotateRight.addEventListener("click", () => rotateAdminPhoto(90, adminEls.photoRotateRight));
 adminEls.closePhoto.addEventListener("click", (event) => {
   event.preventDefault();
   if (adminEls.photoDialog.open) {
@@ -179,6 +182,7 @@ function showAdminLogin() {
 function showAdminApp() {
   adminEls.loginScreen.hidden = true;
   adminEls.app.hidden = false;
+  clearAdminMessage();
 }
 
 function setView(view) {
@@ -201,6 +205,7 @@ function setView(view) {
 }
 
 async function applyAdminFilters(deleted) {
+  clearAdminMessage();
   await loadOptions(deleted);
   await loadDeliveries(deleted);
 }
@@ -289,20 +294,50 @@ function renderDeliveries(container, deliveries, deleted) {
       }
     }
     if (deleted) {
-      actions.append(makeAdminButton("永久刪除", "danger-button", () => permanentlyDelete(delivery)));
+      actions.append(makeAdminButton("還原", "secondary-button", (button) => restoreDelivery(delivery, button)));
+      actions.append(makeAdminButton("永久刪除", "danger-button", (button) => permanentlyDelete(delivery, button)));
     } else {
-      actions.append(makeAdminButton("刪除", "danger-button", () => deleteDelivery(delivery)));
+      actions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
     }
     if (AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
-      const photo = document.createElement("img");
-      const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
-      photo.className = "admin-inline-photo";
-      photo.src = `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(adminState.token)}&t=${stamp}`;
-      photo.alt = `${delivery.invoice_no} 達交照片`;
-      card.append(photo);
+      card.append(createAdminInlinePhoto(delivery));
     }
     container.append(card);
   }
+}
+
+function createAdminInlinePhoto(delivery) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "admin-inline-photo-frame";
+
+  const photo = document.createElement("img");
+  photo.className = "admin-inline-photo";
+  photo.alt = `${delivery.invoice_no} 達交照片`;
+  setAdminPhotoSource(photo, delivery);
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "admin-inline-photo-toolbar";
+  const rotateError = document.createElement("span");
+  rotateError.className = "photo-rotate-error";
+  rotateError.setAttribute("aria-live", "polite");
+  const rotateLeft = makePhotoIconButton("左轉90度", "↺", (button) => rotateAdminInlinePhoto(delivery, photo, -90, button, rotateError));
+  const rotateRight = makePhotoIconButton("右轉90度", "↻", (button) => rotateAdminInlinePhoto(delivery, photo, 90, button, rotateError));
+  toolbar.append(rotateLeft, rotateRight, rotateError);
+
+  const viewport = document.createElement("div");
+  viewport.className = "admin-inline-photo-viewport";
+  viewport.append(photo);
+  createPhotoViewer({
+    viewport,
+    image: photo,
+    useWindowResize: false,
+    wheelRequiresCtrl: true,
+    wheelScrollTarget: () => viewport.closest(".admin-list"),
+    touchScrollTarget: () => viewport.closest(".admin-list"),
+  });
+
+  wrapper.append(toolbar, viewport);
+  return wrapper;
 }
 
 async function uploadExcel() {
@@ -311,38 +346,40 @@ async function uploadExcel() {
     return;
   }
 
-  setAdminMessage("匯入中...");
-  const lines = [];
-  try {
-    for (const file of adminState.uploadFiles) {
-      const fileData = await readFileDataUrl(file);
-      const result = await adminApi("/api/admin/import", {
-        method: "POST",
-        body: {
-          token: adminState.token,
-          filename: file.name,
-          file_data: fileData,
-        },
-      });
-      lines.push(
-        [
-          file.name,
-          `新增：${result.summary.inserted}`,
-          `更新：${result.summary.updated}`,
-          `略過：${result.summary.skipped}`,
-          `已達交不可匯入：${result.summary.locked_delivered}`,
-        ].join("\n"),
-      );
+  await AdminOperationState.runWithButtonLock(adminEls.uploadExcel, "匯入中...", async () => {
+    setAdminMessage("匯入中...");
+    const lines = [];
+    try {
+      for (const file of adminState.uploadFiles) {
+        const fileData = await readFileDataUrl(file);
+        const result = await adminApi("/api/admin/import", {
+          method: "POST",
+          body: {
+            token: adminState.token,
+            filename: file.name,
+            file_data: fileData,
+          },
+        });
+        lines.push(
+          [
+            file.name,
+            `新增：${result.summary.inserted}`,
+            `更新：${result.summary.updated}`,
+            `略過：${result.summary.skipped}`,
+            `已達交不可匯入：${result.summary.locked_delivered}`,
+          ].join("\n"),
+        );
+      }
+      adminEls.excelFile.value = "";
+      setUploadFiles([]);
+      adminEls.importSummary.textContent = lines.join("\n\n");
+      await loadOptions();
+      await loadDeliveries(false);
+      setAdminMessage("匯入完成");
+    } catch (error) {
+      setAdminMessage(error.message, true);
     }
-    adminEls.excelFile.value = "";
-    setUploadFiles([]);
-    adminEls.importSummary.textContent = lines.join("\n\n");
-    await loadOptions();
-    await loadDeliveries(false);
-    setAdminMessage("匯入完成");
-  } catch (error) {
-    setAdminMessage(error.message, true);
-  }
+  });
 }
 
 async function archivePhotos() {
@@ -351,21 +388,23 @@ async function archivePhotos() {
     return;
   }
 
-  setAdminMessage("封存中...");
-  try {
-    const result = await adminApi("/api/admin/archive", {
-      method: "POST",
-      body: {
-        token: adminState.token,
-        delivery_date: adminEls.archiveDate.value,
-      },
-    });
-    adminState.archives = result.archives;
-    renderArchives();
-    setAdminMessage(result.archives.length ? "封存完成" : "該日期沒有可封存照片");
-  } catch (error) {
-    setAdminMessage(error.message, true);
-  }
+  await AdminOperationState.runWithButtonLock(adminEls.archivePhotos, "封存中...", async () => {
+    setAdminMessage("封存中...");
+    try {
+      const result = await adminApi("/api/admin/archive", {
+        method: "POST",
+        body: {
+          token: adminState.token,
+          delivery_date: adminEls.archiveDate.value,
+        },
+      });
+      adminState.archives = result.archives;
+      renderArchives();
+      setAdminMessage(result.archives.length ? "封存完成" : "該日期沒有可封存照片");
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
+  });
 }
 
 function renderArchives() {
@@ -417,33 +456,64 @@ function downloadArchive(name) {
   link.remove();
 }
 
-async function deleteDelivery(delivery) {
+async function deleteDelivery(delivery, button) {
   if (!confirm(`確定刪除 ${delivery.invoice_no}？`)) {
     return;
   }
-  const result = await adminApi(`/api/admin/deliveries/${delivery.id}/delete`, {
-    method: "POST",
-    body: { token: adminState.token },
+  await AdminOperationState.runWithButtonLock(button, "刪除中...", async () => {
+    try {
+      const result = await adminApi(`/api/admin/deliveries/${delivery.id}/delete`, {
+        method: "POST",
+        body: { token: adminState.token },
+      });
+      await loadOptions();
+      await loadDeliveries(false);
+      if (result.mode === "archived") {
+        setAdminMessage("已達交單據已移到刪除區");
+      } else {
+        setAdminMessage("未達交單據已永久刪除");
+      }
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
   });
-  await loadOptions();
-  await loadDeliveries(false);
-  if (result.mode === "archived") {
-    setAdminMessage("已達交單據已移到刪除區");
-  } else {
-    setAdminMessage("未達交單據已永久刪除");
-  }
 }
 
-async function permanentlyDelete(delivery) {
+async function restoreDelivery(delivery, button) {
+  if (!confirm(`確定還原 ${delivery.invoice_no}？`)) {
+    return;
+  }
+  await AdminOperationState.runWithButtonLock(button, "還原中...", async () => {
+    try {
+      await adminApi(`/api/admin/deliveries/${delivery.id}/restore`, {
+        method: "POST",
+        body: { token: adminState.token },
+      });
+      await loadOptions();
+      await loadDeliveries(true);
+      setAdminMessage("已還原");
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
+  });
+}
+
+async function permanentlyDelete(delivery, button) {
   if (!confirm(`確定永久刪除 ${delivery.invoice_no}？此動作無法復原。`)) {
     return;
   }
-  await adminApi(`/api/admin/deliveries/${delivery.id}/permanent-delete`, {
-    method: "POST",
-    body: { token: adminState.token },
+  await AdminOperationState.runWithButtonLock(button, "永久刪除中...", async () => {
+    try {
+      await adminApi(`/api/admin/deliveries/${delivery.id}/permanent-delete`, {
+        method: "POST",
+        body: { token: adminState.token },
+      });
+      await loadDeliveries(true);
+      setAdminMessage("已永久刪除");
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
   });
-  await loadDeliveries(true);
-  setAdminMessage("已永久刪除");
 }
 
 async function loadUsers() {
@@ -519,10 +589,107 @@ function fillUserForm(user) {
 }
 
 function openAdminPhoto(delivery) {
-  adminEls.photoTitle.textContent = `${delivery.invoice_no} ${delivery.status_label}`;
-  const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
-  adminEls.photoPreview.src = `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(adminState.token)}&t=${stamp}`;
+  adminState.photoDelivery = delivery;
+  setAdminPhotoPreview(delivery);
+  clearPhotoRotateError(adminEls.photoRotateError);
   adminEls.photoDialog.showModal();
+}
+
+function setAdminPhotoPreview(delivery) {
+  adminEls.photoTitle.textContent = `${delivery.invoice_no} ${delivery.status_label}`;
+  setAdminPhotoSource(adminEls.photoPreview, delivery);
+}
+
+function setAdminPhotoSource(image, delivery) {
+  const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
+  image.src = `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(adminState.token)}&t=${stamp}`;
+}
+
+async function rotateAdminPhoto(degrees, button) {
+  if (!adminState.photoDelivery) {
+    return;
+  }
+
+  await runPhotoRotateWithFailureMessage(button, adminEls.photoRotateError, async () => {
+    const result = await saveRotatedAdminPhoto(adminState.photoDelivery, adminEls.photoPreview, degrees);
+    adminState.photoDelivery = result.delivery;
+    setAdminPhotoPreview(result.delivery);
+    await loadDeliveries(adminState.view === "deleted");
+  });
+}
+
+async function rotateAdminInlinePhoto(delivery, image, degrees, button, errorEl) {
+  await runPhotoRotateWithFailureMessage(button, errorEl, async () => {
+    const result = await saveRotatedAdminPhoto(delivery, image, degrees);
+    Object.assign(delivery, result.delivery);
+    setAdminPhotoSource(image, result.delivery);
+    if (adminState.photoDelivery && adminState.photoDelivery.id === result.delivery.id) {
+      adminState.photoDelivery = result.delivery;
+      setAdminPhotoPreview(result.delivery);
+    }
+  });
+}
+
+async function runPhotoRotateWithFailureMessage(button, errorEl, operation) {
+  if (button.disabled) {
+    return;
+  }
+
+  clearPhotoRotateError(errorEl);
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+
+  try {
+    await operation();
+  } catch (error) {
+    setPhotoRotateError(errorEl, error.message);
+  } finally {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+  }
+}
+
+function clearPhotoRotateError(errorEl) {
+  setPhotoRotateError(errorEl, "");
+}
+
+function setPhotoRotateError(errorEl, message) {
+  if (errorEl) {
+    errorEl.textContent = message;
+  }
+}
+
+async function saveRotatedAdminPhoto(delivery, image, degrees) {
+  const photoData = rotatedPhotoDataUrl(image, degrees);
+  return adminApi(`/api/admin/deliveries/${delivery.id}/photo`, {
+    method: "POST",
+    body: {
+      token: adminState.token,
+      status: delivery.status || "normal",
+      photo_data: photoData,
+    },
+  });
+}
+
+function rotatedPhotoDataUrl(image, degrees) {
+  if (!image.complete || !image.naturalWidth || !image.naturalHeight) {
+    throw new Error("照片尚未載入完成");
+  }
+
+  const normalized = ((degrees % 360) + 360) % 360;
+  const swapSize = normalized === 90 || normalized === 270;
+  const canvas = document.createElement("canvas");
+  canvas.width = swapSize ? image.naturalHeight : image.naturalWidth;
+  canvas.height = swapSize ? image.naturalWidth : image.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("照片處理失敗");
+  }
+
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.rotate((degrees * Math.PI) / 180);
+  context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
 function updateToggleAllPhotosButton() {
@@ -556,7 +723,18 @@ function makeAdminButton(text, className, onClick) {
   button.type = "button";
   button.className = className;
   button.textContent = text;
-  button.addEventListener("click", onClick);
+  button.addEventListener("click", () => onClick(button));
+  return button;
+}
+
+function makePhotoIconButton(label, icon, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary-button photo-icon-button";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.textContent = icon;
+  button.addEventListener("click", () => onClick(button));
   return button;
 }
 
@@ -576,6 +754,10 @@ async function adminApi(path, options = {}) {
 function setAdminMessage(message, isError = false) {
   adminEls.message.textContent = message;
   adminEls.message.style.color = isError ? "var(--danger)" : "var(--normal)";
+}
+
+function clearAdminMessage() {
+  setAdminMessage("", false);
 }
 
 function setAdminPasswordIconHidden(icon, isHidden) {

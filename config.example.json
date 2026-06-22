@@ -27,6 +27,13 @@
     "country_code": "TW",
     "timeout_seconds": 5
   },
+  "scan_ocr": {
+    "enabled": false,
+    "provider": "google_vision",
+    "credentials_file_env": "GOOGLE_APPLICATION_CREDENTIALS",
+    "feature_type": "TEXT_DETECTION",
+    "timeout_seconds": 10
+  },
   "host": "0.0.0.0",
   "port": 8000,
   "users": [

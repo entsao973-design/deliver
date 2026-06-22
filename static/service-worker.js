@@ -1,17 +1,25 @@
-const CACHE_NAME = "delivery-proof-pwa-v21";
+const APP_VERSION = "2026.06.21.2";
+const CACHE_NAME = `delivery-proof-pwa-${APP_VERSION}`;
 const SHELL_ASSETS = [
   "/",
   "/driver",
   "/admin",
   "/manifest.webmanifest",
+  "/static/app-version.json",
   "/static/styles.css",
   "/static/admin.css",
   "/static/photo-viewer.js",
   "/static/offline-upload-queue.js",
+  "/static/driver-api.js",
+  "/static/smart-photo.js",
+  "/static/driver-smart-delivery.js",
+  "/static/scan-invoice.js",
+  "/static/driver-scan-delivery.js",
   "/static/app.js",
   "/static/admin-api.js",
   "/static/admin-filter-options.js",
   "/static/admin-photo-view.js",
+  "/static/admin-operation-state.js",
   "/static/admin.js",
   "/static/pwa.js",
   "/static/icons/icon-192.png",
@@ -22,7 +30,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => undefined),
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from .auth import UserStore
 from .geocoding import make_geocoder
 from .repository import DeliveryRepository
+from .scan_ocr import ScanOcrError, decode_scan_image_data_url, make_scan_ocr
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -67,6 +68,7 @@ class DeliveryServer:
         self.config = config
         self.repo = create_repository(config)
         self.users = create_user_store(config)
+        self.scan_ocr = make_scan_ocr(config.get("scan_ocr", {}))
         self.upload_dir = Path(config.get("upload_dir", "data/uploads"))
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.sessions: dict[str, dict] = {}
@@ -144,6 +146,8 @@ class DeliveryServer:
                 parsed = urlparse(self.path)
                 if parsed.path == "/api/login":
                     self._handle_login()
+                elif parsed.path == "/api/driver/scan-invoice-ocr":
+                    self._handle_driver_scan_invoice_ocr()
                 elif parsed.path.startswith("/api/deliveries/") and parsed.path.endswith("/photo"):
                     delivery_id = parsed.path.split("/")[3]
                     self._handle_photo_upload(delivery_id)
@@ -157,9 +161,15 @@ class DeliveryServer:
                     self._handle_admin_user_delete()
                 elif parsed.path == "/api/admin/archive":
                     self._handle_admin_archive()
+                elif parsed.path.startswith("/api/admin/deliveries/") and parsed.path.endswith("/photo"):
+                    delivery_id = parsed.path.split("/")[4]
+                    self._handle_admin_photo_save(delivery_id)
                 elif parsed.path.startswith("/api/admin/deliveries/") and parsed.path.endswith("/permanent-delete"):
                     delivery_id = parsed.path.split("/")[4]
                     self._handle_admin_permanent_delete(delivery_id)
+                elif parsed.path.startswith("/api/admin/deliveries/") and parsed.path.endswith("/restore"):
+                    delivery_id = parsed.path.split("/")[4]
+                    self._handle_admin_restore(delivery_id)
                 elif parsed.path.startswith("/api/admin/deliveries/") and parsed.path.endswith("/delete"):
                     delivery_id = parsed.path.split("/")[4]
                     self._handle_admin_delete(delivery_id)
@@ -259,6 +269,27 @@ class DeliveryServer:
                 counts = app.repo.counts_for_vehicle(session["vehicle_no"], requested_date)
                 self._send_json({"delivery": record, "counts": counts})
 
+            def _handle_admin_photo_save(self, delivery_id: str) -> None:
+                body = self._read_json(max_bytes=16 * 1024 * 1024)
+                if not self._admin_from_body(body):
+                    return
+
+                try:
+                    record = app.repo.update_photo(
+                        delivery_id,
+                        str(body.get("status", "")),
+                        str(body.get("photo_data", "")),
+                        captured_at=str(body.get("captured_at", "")).strip() or None,
+                    )
+                except KeyError as exc:
+                    self._json_error(HTTPStatus.NOT_FOUND, str(exc))
+                    return
+                except ValueError as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+
+                self._send_json({"delivery": record})
+
             def _handle_photo(self, parsed, delivery_id: str) -> None:
                 if not self._session_from_request(parsed):
                     return
@@ -323,6 +354,33 @@ class DeliveryServer:
                 app._start_geocoding_job()
                 self._send_json({"ok": True, "summary": summary})
 
+            def _handle_driver_scan_invoice_ocr(self) -> None:
+                body = self._read_json(
+                    max_bytes=6 * 1024 * 1024,
+                    too_large_message="掃號圖片太大",
+                )
+                session = self._session_from_body(body)
+                if not session:
+                    return
+                if session.get("role") != "driver":
+                    self._json_error(HTTPStatus.FORBIDDEN, "只有物流士可以使用掃號達交")
+                    return
+
+                try:
+                    image_bytes = decode_scan_image_data_url(str(body.get("image_data", "")))
+                    text = app.scan_ocr.recognize_text(image_bytes)
+                except ValueError as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                except ScanOcrError as exc:
+                    self._json_error(HTTPStatus.SERVICE_UNAVAILABLE, str(exc))
+                    return
+
+                self._send_json({
+                    "provider": getattr(app.scan_ocr, "provider", ""),
+                    "text": text,
+                })
+
             def _handle_admin_deliveries(self, parsed) -> None:
                 if not self._admin_from_request(parsed):
                     return
@@ -358,6 +416,20 @@ class DeliveryServer:
                     self._json_error(HTTPStatus.NOT_FOUND, str(exc))
                     return
                 self._send_json(result)
+
+            def _handle_admin_restore(self, delivery_id: str) -> None:
+                body = self._read_json()
+                if not self._admin_from_body(body):
+                    return
+                try:
+                    delivery = app.repo.restore_delivery(delivery_id)
+                except KeyError as exc:
+                    self._json_error(HTTPStatus.NOT_FOUND, str(exc))
+                    return
+                except ValueError as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                self._send_json({"delivery": delivery})
 
             def _handle_admin_permanent_delete(self, delivery_id: str) -> None:
                 body = self._read_json()

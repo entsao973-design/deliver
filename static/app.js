@@ -40,12 +40,20 @@ const els = {
   hideDoneToggle: document.querySelector("#hideDoneToggle"),
   showAllPhotosToggle: document.querySelector("#showAllPhotosToggle"),
   smartPhotoButton: document.querySelector("#smartPhotoButton"),
+  scanInvoiceButton: document.querySelector("#scanInvoiceButton"),
   refreshButton: document.querySelector("#refreshButton"),
   reloadButton: document.querySelector("#reloadButton"),
   queueStatus: document.querySelector("#queueStatus"),
   message: document.querySelector("#message"),
   deliveryList: document.querySelector("#deliveryList"),
   photoInput: document.querySelector("#photoInput"),
+  scanInvoiceInput: document.querySelector("#scanInvoiceInput"),
+  scanInvoiceDialog: document.querySelector("#scanInvoiceDialog"),
+  scanInvoiceVideo: document.querySelector("#scanInvoiceVideo"),
+  scanInvoiceFrame: document.querySelector("#scanInvoiceFrame"),
+  scanInvoiceCanvas: document.querySelector("#scanInvoiceCanvas"),
+  captureScanInvoiceButton: document.querySelector("#captureScanInvoiceButton"),
+  closeScanInvoiceButton: document.querySelector("#closeScanInvoiceButton"),
   photoDialog: document.querySelector("#photoDialog"),
   photoTitle: document.querySelector("#photoTitle"),
   photoPreview: document.querySelector("#photoPreview"),
@@ -68,6 +76,22 @@ createPhotoViewer({
 
 const offlineQueueApi = window.OfflineUploadQueue;
 const photoQueue = offlineQueueApi ? new offlineQueueApi.IndexedDbPhotoQueue() : null;
+const api = window.DriverApi.request;
+const smartDeliveryController = window.DriverSmartDelivery.createController({
+  els,
+  state,
+  offlineQueueApi,
+  startCapture,
+  setMessage,
+});
+const scanDeliveryController = window.DriverScanDelivery.createController({
+  els,
+  state,
+  api,
+  offlineQueueApi,
+  startCapture,
+  setMessage,
+});
 
 els.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -149,7 +173,15 @@ els.vehicleNo.addEventListener("input", () => {
 
 els.hideDoneToggle.addEventListener("change", loadDeliveries);
 els.showAllPhotosToggle.addEventListener("change", renderDeliveries);
-els.smartPhotoButton.addEventListener("click", handleSmartPhoto);
+els.smartPhotoButton.addEventListener("click", smartDeliveryController.handleSmartPhoto);
+els.scanInvoiceButton.addEventListener("click", scanDeliveryController.handleScanInvoice);
+els.scanInvoiceInput.addEventListener("change", scanDeliveryController.handleScanInvoiceFileChange);
+els.captureScanInvoiceButton.addEventListener("click", scanDeliveryController.handleCaptureScanInvoice);
+els.closeScanInvoiceButton.addEventListener("click", scanDeliveryController.closeScanInvoiceCamera);
+els.scanInvoiceDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  scanDeliveryController.closeScanInvoiceCamera();
+});
 els.refreshButton.addEventListener("click", loadDeliveries);
 window.addEventListener("online", () => {
   updateQueueStatus();
@@ -318,6 +350,7 @@ function renderCard(delivery) {
       viewport,
       image: photo,
       useWindowResize: false,
+      touchScrollTarget: () => viewport.closest(".delivery-list"),
     });
   }
 
@@ -357,109 +390,6 @@ function startCapture(delivery, status) {
   state.pendingDelivery = delivery;
   state.pendingStatus = status;
   els.photoInput.click();
-}
-
-async function handleSmartPhoto() {
-  if (!window.SmartPhoto) {
-    setMessage("智慧拍照尚未載入，請重新整理或自行選擇單號拍照", true);
-    return;
-  }
-  if (!navigator.geolocation) {
-    setMessage("無法取得目前定位，請自行選擇單號拍照", true);
-    return;
-  }
-
-  els.smartPhotoButton.disabled = true;
-  setMessage("正在取得定位...");
-  try {
-    const position = await getCurrentPosition();
-    const outcome = window.SmartPhoto.outcomeForPosition({
-      coords: position.coords,
-      deliveries: currentDeliveriesForSmartPhoto(),
-    });
-
-    if (outcome.type === "none") {
-      setMessage("300公尺內查無單據，請自行選擇單號拍照", true);
-      return;
-    }
-
-    setMessage("");
-    showSmartPhotoDialog(outcome.candidates);
-  } catch (error) {
-    setMessage(smartPhotoErrorMessage(error), true);
-  } finally {
-    els.smartPhotoButton.disabled = false;
-  }
-}
-
-function getCurrentPosition() {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000,
-    });
-  });
-}
-
-function currentDeliveriesForSmartPhoto() {
-  return offlineQueueApi
-    ? offlineQueueApi.mergePendingUploads(state.deliveries, state.pendingUploads)
-    : state.deliveries;
-}
-
-function showSmartPhotoDialog(candidates) {
-  els.smartPhotoStatusNormal.checked = true;
-  els.smartPhotoStatusAbnormal.checked = false;
-  els.smartPhotoTitle.textContent = candidates.length === 1 ? "找到 1 張單據" : `找到 ${candidates.length} 張單據`;
-  renderSmartPhotoCandidates(candidates);
-  if (!els.smartPhotoDialog.open) {
-    els.smartPhotoDialog.showModal();
-  }
-}
-
-function renderSmartPhotoCandidates(candidates) {
-  els.smartPhotoCandidates.replaceChildren();
-  for (const candidate of candidates) {
-    const button = document.createElement("button");
-    const main = document.createElement("span");
-    const meta = document.createElement("span");
-    const delivery = candidate.delivery;
-
-    button.type = "button";
-    button.className = "secondary-button smart-photo-candidate";
-    main.className = "smart-photo-candidate-main";
-    meta.className = "smart-photo-candidate-meta";
-    main.textContent = smartPhotoCandidateTitle(delivery);
-    meta.textContent = `${delivery.customer || ""} ${window.SmartPhoto.formatDistance(candidate.distance)}`.trim();
-    button.append(main, meta);
-    button.addEventListener("click", () => {
-      els.smartPhotoDialog.close();
-      startCapture(candidate.delivery, selectedSmartPhotoStatus());
-    });
-    els.smartPhotoCandidates.append(button);
-  }
-}
-
-function smartPhotoCandidateTitle(delivery) {
-  return [delivery.company, delivery.invoice_no].filter(Boolean).join(" ") || delivery.customer || "未命名單據";
-}
-
-function selectedSmartPhotoStatus() {
-  return els.smartPhotoStatusAbnormal.checked ? "abnormal" : "normal";
-}
-
-function smartPhotoErrorMessage(error) {
-  if (error?.message === "low_accuracy") {
-    return "定位精度不足，請移至可收訊處或自行選擇單號拍照";
-  }
-  if (error?.code === 1) {
-    return "手機未允許定位，請開啟定位權限或自行選擇單號拍照";
-  }
-  if (navigator.onLine === false) {
-    return "網路中斷，無法取得目前定位，請自行選擇單號拍照";
-  }
-  return "無法取得目前定位，請自行選擇單號拍照";
 }
 
 function openPhoto(delivery) {
@@ -609,6 +539,8 @@ function updateQueueStatus(message = "") {
   if (!els.queueStatus) {
     return;
   }
+  localStorage.setItem("delivery_pending_upload_count", String(state.pendingUploads.length));
+  window.dispatchEvent(new CustomEvent("delivery-pending-uploads-changed"));
   els.queueStatus.textContent = offlineQueueApi
     ? offlineQueueApi.queueStatusMessage({
         customMessage: message,
@@ -652,21 +584,6 @@ async function compressToJpegDataUrl(file, maxSide, quality) {
       quality,
     );
   });
-}
-
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    method: options.method || "GET",
-    headers: options.body ? { "Content-Type": "application/json" } : {},
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    const error = new Error(payload.error || "系統錯誤");
-    error.status = response.status;
-    throw error;
-  }
-  return payload;
 }
 
 function showDeliveryScreen() {

@@ -6,6 +6,27 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const staticRoot = path.join(root, "static");
 
+test("PWA app version matches service worker cache and shell assets", () => {
+  const appVersion = JSON.parse(fs.readFileSync(path.join(staticRoot, "app-version.json"), "utf8"));
+  const workerJs = fs.readFileSync(path.join(staticRoot, "service-worker.js"), "utf8");
+
+  assert.match(appVersion.version, /^20\d{2}\.\d{2}\.\d{2}\.\d+$/);
+  assert.match(workerJs, new RegExp(`const APP_VERSION = "${escapeRegExp(appVersion.version)}"`));
+  assert.match(workerJs, /const CACHE_NAME = `delivery-proof-pwa-\${APP_VERSION}`;/);
+
+  for (const asset of [
+    "/static/app-version.json",
+    "/static/driver-api.js",
+    "/static/smart-photo.js",
+    "/static/driver-smart-delivery.js",
+    "/static/scan-invoice.js",
+    "/static/driver-scan-delivery.js",
+    "/static/admin-operation-state.js",
+  ]) {
+    assert.match(workerJs, new RegExp(`"${escapeRegExp(asset)}"`));
+  }
+});
+
 test("manifest has Android fullscreen PWA install fields", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(staticRoot, "manifest.json"), "utf8"));
 
@@ -71,18 +92,97 @@ test("service worker registers at root scope and does not handle API requests", 
   assert.match(pwaJs, /serviceWorker\.register\("\/service-worker\.js",\s*\{\s*scope:\s*"\/"\s*\}\)/s);
   assert.match(pwaJs, /registration\.update\(\)/);
   assert.match(pwaJs, /controllerchange/);
-  assert.match(pwaJs, /window\.location\.reload\(\)/);
+  assert.match(pwaJs, /root\.location\.reload\(\)/);
   assert.match(workerJs, /self\.addEventListener\("install"/);
   assert.match(workerJs, /self\.addEventListener\("activate"/);
   assert.match(workerJs, /self\.addEventListener\("fetch"/);
   assert.match(workerJs, /self\.addEventListener\("message"/);
   assert.match(workerJs, /SKIP_WAITING/);
-  assert.match(workerJs, /delivery-proof-pwa-v21/);
+  assert.doesNotMatch(workerJs, /self\.addEventListener\("install"[\s\S]*self\.skipWaiting\(\);[\s\S]*self\.addEventListener\("activate"/);
+  assert.match(workerJs, /delivery-proof-pwa-\$\{APP_VERSION\}/);
   assert.match(workerJs, /"\/driver"/);
   assert.match(workerJs, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(webPy, /parsed\.path == "\/manifest\.webmanifest"/);
   assert.match(webPy, /application\/manifest\+json/);
   assert.match(webPy, /parsed\.path == "\/service-worker\.js"/);
+});
+
+test("PWA update helpers defer reload while offline uploads are pending", () => {
+  const DeliveryPwa = require("../static/pwa.js");
+  const storage = {
+    getItem(key) {
+      return key === "delivery_pending_upload_count" ? "2" : "";
+    },
+  };
+
+  assert.equal(DeliveryPwa.pendingUploadCount(storage), 2);
+  assert.equal(DeliveryPwa.shouldActivateImmediately({ isLoginVisible: true, pendingUploadCount: 0 }), true);
+  assert.equal(DeliveryPwa.shouldActivateImmediately({ isLoginVisible: false, pendingUploadCount: 0 }), false);
+  assert.equal(DeliveryPwa.shouldActivateImmediately({ isLoginVisible: true, pendingUploadCount: 2 }), false);
+  assert.equal(DeliveryPwa.updateMessageForPendingCount(0), "系統已有新版，請更新。");
+  assert.equal(DeliveryPwa.updateMessageForPendingCount(2), "系統已有新版；待上傳照片 2 筆完成後再更新。");
+});
+
+test("PWA update helpers ignore driver pending uploads on admin pages", () => {
+  const DeliveryPwa = require("../static/pwa.js");
+  const storage = {
+    getItem(key) {
+      return key === "delivery_pending_upload_count" ? "3" : "";
+    },
+  };
+  const adminDocument = {
+    querySelector(selector) {
+      return selector === "#adminApp, #adminLoginScreen" ? {} : null;
+    },
+  };
+
+  assert.equal(DeliveryPwa.pendingUploadCount(storage, adminDocument), 0);
+});
+
+test("admin operation state locks buttons while an action is running", async () => {
+  const AdminOperationState = require("../static/admin-operation-state.js");
+  const attrs = {};
+  const button = {
+    disabled: false,
+    textContent: "上傳並匯入",
+    setAttribute(name, value) {
+      attrs[name] = value;
+    },
+    removeAttribute(name) {
+      delete attrs[name];
+    },
+  };
+  let ran = false;
+
+  await AdminOperationState.runWithButtonLock(button, "匯入中...", async () => {
+    ran = true;
+    assert.equal(button.disabled, true);
+    assert.equal(button.textContent, "匯入中...");
+    assert.equal(attrs["aria-busy"], "true");
+  });
+
+  assert.equal(ran, true);
+  assert.equal(button.disabled, false);
+  assert.equal(button.textContent, "上傳並匯入");
+  assert.equal(attrs["aria-busy"], undefined);
+});
+
+test("admin operation state skips duplicate clicks while a button is disabled", async () => {
+  const AdminOperationState = require("../static/admin-operation-state.js");
+  const button = {
+    disabled: true,
+    textContent: "刪除中...",
+    setAttribute() {},
+    removeAttribute() {},
+  };
+  let calls = 0;
+
+  await AdminOperationState.runWithButtonLock(button, "刪除中...", async () => {
+    calls += 1;
+  });
+
+  assert.equal(calls, 0);
+  assert.equal(button.textContent, "刪除中...");
 });
 
 function assertPngSize(filePath, expectedWidth, expectedHeight) {
@@ -132,4 +232,8 @@ function assertPixelNear(icon, x, y, expectedRgb, tolerance) {
       `pixel ${x},${y} channel ${channel} expected near ${expectedRgb[channel]}, got ${actual[channel]}`,
     );
   }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

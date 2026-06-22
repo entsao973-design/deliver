@@ -175,8 +175,13 @@
       <div class="dialog-header">
         <strong id="adminPhotoTitle"></strong>
         <div class="photo-tools">
-          <button id="adminPhotoZoomOut" class="secondary-button" type="button">縮小</button>
-          <button id="adminPhotoZoomIn" class="secondary-button" type="button">放大</button>
+          <button id="adminPhotoRotateLeft" class="secondary-button photo-icon-button" type="button" aria-label="左轉90度" title="左轉90度">
+            <span aria-hidden="true">&#8634;</span>
+          </button>
+          <button id="adminPhotoRotateRight" class="secondary-button photo-icon-button" type="button" aria-label="右轉90度" title="右轉90度">
+            <span aria-hidden="true">&#8635;</span>
+          </button>
+          <span id="adminPhotoRotateError" class="photo-rotate-error" aria-live="polite"></span>
         </div>
         <form class="dialog-close-form" method="dialog">
           <button id="closeAdminPhoto" class="ghost-button" type="submit">關閉</button>
@@ -190,6 +195,7 @@
     <script src="/static/photo-viewer.js"></script>
     <script src="/static/admin-photo-view.js"></script>
     <script src="/static/admin-filter-options.js"></script>
+    <script src="/static/admin-operation-state.js"></script>
     <script src="/static/admin-api.js"></script>
     <script src="/static/pwa.js" defer></script>
     <script src="/static/admin.js" defer></script>
