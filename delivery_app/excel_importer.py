@@ -9,7 +9,7 @@ from typing import Any
 import openpyxl
 
 from .geocoding import default_geocode_fields
-from .import_diagnostics import write_import_log
+from .import_diagnostics import dump_traceback_if_slow, write_import_log
 
 
 def clean_text(value: Any) -> str:
@@ -66,13 +66,24 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
     existing_by_id = {record["id"]: record for record in existing_records or []}
 
     write_import_log("excel_importer_start", path=excel_path, bytes=excel_path.stat().st_size if excel_path.exists() else "")
-    write_import_log("workbook_load_start", path=excel_path, suffix=excel_path.suffix)
-    workbook = openpyxl.load_workbook(
-        excel_path,
+    write_import_log(
+        "workbook_load_start",
+        path=excel_path,
+        suffix=excel_path.suffix,
         read_only=False,
         data_only=True,
         keep_vba=False,
+        keep_links=False,
+        openpyxl_version=getattr(openpyxl, "__version__", ""),
     )
+    with dump_traceback_if_slow("openpyxl.load_workbook"):
+        workbook = openpyxl.load_workbook(
+            excel_path,
+            read_only=False,
+            data_only=True,
+            keep_vba=False,
+            keep_links=False,
+        )
     write_import_log("workbook_load_done", sheets=len(workbook.worksheets), sheet_names=",".join(workbook.sheetnames))
     deliveries: list[dict[str, Any]] = []
     try:
