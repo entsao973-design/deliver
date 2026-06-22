@@ -71,7 +71,7 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
         excel_path,
         read_only=False,
         data_only=True,
-        keep_vba=excel_path.suffix.lower() == ".xlsm",
+        keep_vba=False,
     )
     write_import_log("workbook_load_done", sheets=len(workbook.worksheets), sheet_names=",".join(workbook.sheetnames))
     deliveries: list[dict[str, Any]] = []
