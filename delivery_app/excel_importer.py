@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
+import subprocess
+import sys
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -10,6 +15,11 @@ import openpyxl
 
 from .geocoding import default_geocode_fields
 from .import_diagnostics import dump_traceback_if_slow, write_import_log
+
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+WORKER_LOG = ROOT_DIR / "server.import.worker.log"
+DEFAULT_WORKER_TIMEOUT_SECONDS = 120
 
 
 def clean_text(value: Any) -> str:
@@ -62,6 +72,64 @@ def make_delivery_id(date_folder: str, vehicle_no: str, company: str, invoice_no
 
 
 def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    if existing_records is not None or os.environ.get("DELIVERY_EXCEL_IMPORT_SUBPROCESS") == "0":
+        return import_deliveries_direct(excel_path, existing_records)
+    return import_deliveries_with_worker(excel_path)
+
+
+def import_deliveries_with_worker(excel_path: str | Path) -> dict[str, Any]:
+    excel_path = Path(excel_path)
+    timeout_seconds = int(os.environ.get("DELIVERY_EXCEL_IMPORT_TIMEOUT_SECONDS", DEFAULT_WORKER_TIMEOUT_SECONDS))
+    output_fd, output_name = tempfile.mkstemp(prefix="delivery-import-", suffix=".json")
+    os.close(output_fd)
+    output_path = Path(output_name)
+    command = [
+        sys.executable,
+        "-X",
+        "faulthandler",
+        "-m",
+        "delivery_app.excel_import_worker",
+        str(excel_path),
+        str(output_path),
+    ]
+    env = os.environ.copy()
+    env["DELIVERY_EXCEL_IMPORT_SUBPROCESS"] = "0"
+    env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONFAULTHANDLER"] = "1"
+
+    write_import_log("excel_worker_start", path=excel_path, timeout_seconds=timeout_seconds)
+    try:
+        with WORKER_LOG.open("ab") as log_file:
+            log_file.write(f"\n=== Excel worker start {datetime.now().isoformat(timespec='seconds')} path={excel_path} ===\n".encode("utf-8"))
+            result = subprocess.run(
+                command,
+                cwd=ROOT_DIR,
+                env=env,
+                stdout=log_file,
+                stderr=log_file,
+                timeout=timeout_seconds,
+                check=False,
+            )
+    except subprocess.TimeoutExpired as exc:
+        write_import_log("excel_worker_timeout", path=excel_path, timeout_seconds=timeout_seconds)
+        output_path.unlink(missing_ok=True)
+        raise ValueError("Excel 解析逾時，請確認檔案是否正常，或用 Excel 另存新檔後再匯入") from exc
+
+    if result.returncode != 0:
+        write_import_log("excel_worker_failed", path=excel_path, exit_code=result.returncode)
+        output_path.unlink(missing_ok=True)
+        raise ValueError(f"Excel 解析失敗，子行程結束代碼 {result.returncode}")
+
+    try:
+        imported = json.loads(output_path.read_text(encoding="utf-8"))
+    finally:
+        output_path.unlink(missing_ok=True)
+
+    write_import_log("excel_worker_done", path=excel_path, records=len(imported.get("deliveries", [])))
+    return imported
+
+
+def import_deliveries_direct(excel_path: str | Path, existing_records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     excel_path = Path(excel_path)
     existing_by_id = {record["id"]: record for record in existing_records or []}
 
