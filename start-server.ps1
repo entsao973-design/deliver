@@ -5,7 +5,7 @@ $ServerScript = Join-Path $ProjectRoot "server.py"
 $ConfigPath = Join-Path $ProjectRoot "config.json"
 $OutLog = Join-Path $ProjectRoot "server.out.log"
 $ErrLog = Join-Path $ProjectRoot "server.err.log"
-$Python = "C:\Users\duncan.DUNCAN-PC\AppData\Local\Programs\Python\Python313\python.exe"
+$Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $Port = 8000
 
 if (Test-Path -LiteralPath $ConfigPath) {
