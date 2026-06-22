@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 import mimetypes
-import os
 import re
 import secrets
 import threading
-from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,13 +12,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .auth import UserStore
 from .geocoding import make_geocoder
+from .import_diagnostics import write_import_log
 from .repository import DeliveryRepository
 from .scan_ocr import ScanOcrError, decode_scan_image_data_url, make_scan_ocr
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "static"
-IMPORT_LOG = ROOT_DIR / "server.import.log"
 
 
 class RequestError(Exception):
@@ -64,19 +62,6 @@ def create_user_store(config: dict):
 def is_sqlserver_backend(config: dict) -> bool:
     backend = str(config.get("storage_backend") or config.get("database", {}).get("type") or "json").lower()
     return backend in {"sqlserver", "mssql"}
-
-
-def write_import_log(event: str, **fields) -> None:
-    timestamp = datetime.now().isoformat(timespec="seconds")
-    parts = [timestamp, f"pid={os.getpid()}", event]
-    for key, value in fields.items():
-        text = str(value).replace("\r", " ").replace("\n", " ")
-        parts.append(f"{key}={text[:500]}")
-    try:
-        with IMPORT_LOG.open("a", encoding="utf-8") as file:
-            file.write(" | ".join(parts) + "\n")
-    except OSError:
-        return
 
 
 class DeliveryServer:

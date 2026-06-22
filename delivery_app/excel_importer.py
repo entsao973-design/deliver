@@ -9,6 +9,7 @@ from typing import Any
 import openpyxl
 
 from .geocoding import default_geocode_fields
+from .import_diagnostics import write_import_log
 
 
 def clean_text(value: Any) -> str:
@@ -64,18 +65,30 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
     excel_path = Path(excel_path)
     existing_by_id = {record["id"]: record for record in existing_records or []}
 
+    write_import_log("excel_importer_start", path=excel_path, bytes=excel_path.stat().st_size if excel_path.exists() else "")
+    write_import_log("workbook_load_start", path=excel_path, suffix=excel_path.suffix)
     workbook = openpyxl.load_workbook(
         excel_path,
         read_only=False,
         data_only=True,
         keep_vba=excel_path.suffix.lower() == ".xlsm",
     )
+    write_import_log("workbook_load_done", sheets=len(workbook.worksheets), sheet_names=",".join(workbook.sheetnames))
     deliveries: list[dict[str, Any]] = []
     try:
         for sheet in workbook.worksheets:
             if clean_text(sheet["A4"].value) != "序號":
+                write_import_log("worksheet_skip", sheet=sheet.title, a4=clean_text(sheet["A4"].value))
                 continue
 
+            before_count = len(deliveries)
+            write_import_log(
+                "worksheet_start",
+                sheet=sheet.title,
+                max_row=sheet.max_row,
+                max_column=sheet.max_column,
+                merged_ranges=len(sheet.merged_cells.ranges),
+            )
             vehicle_no = value_after_colon(sheet["A3"].value)
             vehicle_no_normalized = normalize_vehicle_no(sheet["A3"].value)
             driver = value_after_colon(sheet["C3"].value)
@@ -146,9 +159,12 @@ def import_deliveries(excel_path: str | Path, existing_records: list[dict[str, A
                         record[field] = previous.get(field)
 
                 deliveries.append(record)
+            write_import_log("worksheet_done", sheet=sheet.title, records=len(deliveries) - before_count)
     finally:
         workbook.close()
+        write_import_log("workbook_closed", path=excel_path)
 
+    write_import_log("excel_importer_done", records=len(deliveries))
     return {
         "source_excel": str(excel_path),
         "imported_at": datetime.now().isoformat(timespec="seconds"),

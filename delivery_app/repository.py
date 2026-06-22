@@ -19,6 +19,7 @@ from .geocoding import (
     default_geocode_fields,
     normalize_address,
 )
+from .import_diagnostics import write_import_log
 
 
 STATUS_LABELS = {
@@ -67,10 +68,14 @@ class DeliveryRepository:
         self.import_excel_file(self.excel_path)
 
     def import_excel_file(self, excel_path: str | Path) -> dict[str, int]:
+        write_import_log("repo_import_start", backend="json", path=excel_path)
         imported = import_deliveries(excel_path)
+        records = imported.get("deliveries", [])
+        write_import_log("repo_import_loaded", backend="json", records=len(records))
         summary = {"inserted": 0, "updated": 0, "skipped": 0, "locked_delivered": 0}
 
         with self._lock:
+            write_import_log("repo_lock_acquired", backend="json")
             data = self._read_data_unlocked()
             deliveries = data.setdefault("deliveries", [])
             by_invoice = {
@@ -79,7 +84,15 @@ class DeliveryRepository:
                 if record.get("invoice_no")
             }
 
-            for imported_record in imported.get("deliveries", []):
+            for index, imported_record in enumerate(records, start=1):
+                if index == 1 or index % 100 == 0 or index == len(records):
+                    write_import_log(
+                        "repo_record_progress",
+                        backend="json",
+                        index=index,
+                        total=len(records),
+                        invoice=imported_record.get("invoice_no", ""),
+                    )
                 invoice_no = imported_record.get("invoice_no")
                 existing = by_invoice.get(invoice_no) if invoice_no else None
                 if existing:
@@ -114,8 +127,11 @@ class DeliveryRepository:
 
             data["source_excel"] = str(excel_path)
             data["imported_at"] = datetime.now().isoformat(timespec="seconds")
+            write_import_log("repo_write_start", backend="json", summary=json.dumps(summary, ensure_ascii=False))
             self._write_data_unlocked(data)
+            write_import_log("repo_write_done", backend="json")
 
+        write_import_log("repo_import_done", backend="json", summary=json.dumps(summary, ensure_ascii=False))
         return summary
 
     def list_for_vehicle(

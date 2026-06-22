@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import hashlib
+import json
 import threading
 import zipfile
 from datetime import datetime, timedelta
@@ -28,6 +29,7 @@ from .geocoding import (
     default_geocode_fields,
     normalize_address,
 )
+from .import_diagnostics import write_import_log
 from .repository import (
     GEOCODE_FIELDS,
     STATUS_LABELS,
@@ -410,14 +412,28 @@ class SqlServerRepository(SqlServerBase):
         self.import_excel_file(self.excel_path)
 
     def import_excel_file(self, excel_path: str | Path) -> dict[str, int]:
+        write_import_log("repo_import_start", backend="sqlserver", path=excel_path)
         imported = import_deliveries(excel_path)
+        records = imported.get("deliveries", [])
+        write_import_log("repo_import_loaded", backend="sqlserver", records=len(records))
         summary = {"inserted": 0, "updated": 0, "skipped": 0, "locked_delivered": 0}
 
         with self._lock:
+            write_import_log("repo_lock_acquired", backend="sqlserver")
+            write_import_log("repo_sql_connect_start", backend="sqlserver")
             with self._connect() as connection:
+                write_import_log("repo_sql_connect_done", backend="sqlserver")
                 cursor = connection.cursor()
                 try:
-                    for imported_record in imported.get("deliveries", []):
+                    for index, imported_record in enumerate(records, start=1):
+                        if index == 1 or index % 100 == 0 or index == len(records):
+                            write_import_log(
+                                "repo_record_progress",
+                                backend="sqlserver",
+                                index=index,
+                                total=len(records),
+                                invoice=imported_record.get("invoice_no", ""),
+                            )
                         invoice_no = imported_record.get("invoice_no")
                         existing = self._fetch_by_invoice(cursor, invoice_no) if invoice_no else None
                         if existing:
@@ -441,11 +457,16 @@ class SqlServerRepository(SqlServerBase):
 
                     self._set_metadata(cursor, "source_excel", str(excel_path))
                     self._set_metadata(cursor, "imported_at", datetime.now().isoformat(timespec="seconds"))
+                    write_import_log("repo_commit_start", backend="sqlserver", summary=json.dumps(summary, ensure_ascii=False))
                     connection.commit()
+                    write_import_log("repo_commit_done", backend="sqlserver")
                 except Exception:
+                    write_import_log("repo_exception", backend="sqlserver")
                     connection.rollback()
+                    write_import_log("repo_rollback_done", backend="sqlserver")
                     raise
 
+        write_import_log("repo_import_done", backend="sqlserver", summary=json.dumps(summary, ensure_ascii=False))
         return summary
 
     def import_records(self, records: list[dict[str, Any]]) -> dict[str, int]:
