@@ -134,6 +134,12 @@
         <video id="scanInvoiceVideo" class="scan-invoice-video" autoplay playsinline muted></video>
         <div id="scanInvoiceFrame" class="scan-invoice-frame" aria-hidden="true"></div>
       </div>
+      <div class="scan-invoice-zoom" aria-label="掃號縮放">
+        <button id="scanInvoiceZoomOutButton" class="secondary-button scan-invoice-zoom-button" type="button" aria-label="縮小" title="縮小">-</button>
+        <input id="scanInvoiceZoomSlider" type="range" min="1" max="3" step="0.1" value="1" aria-label="掃號縮放比例" />
+        <button id="scanInvoiceZoomInButton" class="secondary-button scan-invoice-zoom-button" type="button" aria-label="放大" title="放大">+</button>
+        <span id="scanInvoiceZoomValue" class="scan-invoice-zoom-value">1.0x</span>
+      </div>
       <div class="scan-invoice-actions">
         <button id="captureScanInvoiceButton" class="primary-button" type="button">拍照掃號</button>
       </div>

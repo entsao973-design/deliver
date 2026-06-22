@@ -1,6 +1,18 @@
 (function (root) {
+  const SCAN_INVOICE_DEFAULT_ZOOM = 1;
+  const SCAN_INVOICE_MAX_ZOOM = 3;
+  const SCAN_INVOICE_ZOOM_STEP = 0.1;
+
   function createController({ els, state, api, offlineQueueApi, startCapture, setMessage }) {
     let scanInvoiceStream = null;
+    let scanInvoiceZoom = SCAN_INVOICE_DEFAULT_ZOOM;
+    let scanInvoiceZoomTrack = null;
+    let scanInvoiceNativeZoom = null;
+    let scanInvoiceUsingNativeZoom = false;
+    let scanInvoiceZoomTask = Promise.resolve();
+    let scanInvoicePinch = null;
+
+    bindScanInvoiceZoomGestures();
 
     function handleScanInvoice() {
       if (!root.ScanInvoice) {
@@ -106,11 +118,17 @@
       els.scanInvoiceButton.disabled = true;
       try {
         const stream = await root.navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
           audio: false,
         });
         closeScanInvoiceCamera();
         scanInvoiceStream = stream;
+        setupScanInvoiceZoomTrack(stream);
+        await setScanInvoiceZoom(SCAN_INVOICE_DEFAULT_ZOOM);
         els.scanInvoiceVideo.srcObject = stream;
         if (typeof els.scanInvoiceVideo.play === "function") {
           await els.scanInvoiceVideo.play();
@@ -134,8 +152,13 @@
         }
       }
       scanInvoiceStream = null;
+      scanInvoiceZoomTrack = null;
+      scanInvoiceNativeZoom = null;
+      scanInvoiceUsingNativeZoom = false;
+      scanInvoicePinch = null;
       if (els.scanInvoiceVideo) {
         els.scanInvoiceVideo.srcObject = null;
+        applyScanInvoiceSoftwareZoom(SCAN_INVOICE_DEFAULT_ZOOM);
       }
       if (els.scanInvoiceDialog?.open && typeof els.scanInvoiceDialog.close === "function") {
         els.scanInvoiceDialog.close();
@@ -145,7 +168,8 @@
     async function captureScanInvoiceCrop() {
       const video = els.scanInvoiceVideo;
       const canvas = els.scanInvoiceCanvas;
-      const source = scanInvoiceCropSourceRect(video, els.scanInvoiceFrame);
+      await scanInvoiceZoomTask.catch(() => undefined);
+      const source = scanInvoiceCropSourceRect(video, els.scanInvoiceFrame, scanInvoiceCaptureZoom());
       const context = canvas.getContext("2d");
       if (!context) {
         throw new Error("scan_capture_failed");
@@ -171,7 +195,158 @@
       return blobToScanInvoiceFile(blob);
     }
 
-    function scanInvoiceCropSourceRect(video, frame) {
+    function handleScanInvoiceZoomInput() {
+      return updateScanInvoiceZoomFromControl(els.scanInvoiceZoomSlider?.value);
+    }
+
+    function handleScanInvoiceZoomOut() {
+      return updateScanInvoiceZoomFromControl(scanInvoiceZoom - scanInvoiceZoomStep());
+    }
+
+    function handleScanInvoiceZoomIn() {
+      return updateScanInvoiceZoomFromControl(scanInvoiceZoom + scanInvoiceZoomStep());
+    }
+
+    function updateScanInvoiceZoomFromControl(value) {
+      scanInvoiceZoomTask = setScanInvoiceZoom(value);
+      return scanInvoiceZoomTask;
+    }
+
+    async function setScanInvoiceZoom(value) {
+      scanInvoiceZoom = normalizeScanInvoiceZoom(value);
+      if (await tryApplyScanInvoiceNativeZoom(scanInvoiceZoom)) {
+        scanInvoiceUsingNativeZoom = true;
+        applyScanInvoiceSoftwareZoom(SCAN_INVOICE_DEFAULT_ZOOM);
+      } else {
+        scanInvoiceUsingNativeZoom = false;
+        applyScanInvoiceSoftwareZoom(scanInvoiceZoom);
+      }
+      updateScanInvoiceZoomControls();
+    }
+
+    function setupScanInvoiceZoomTrack(stream) {
+      const tracks = typeof stream.getVideoTracks === "function" ? stream.getVideoTracks() : [];
+      scanInvoiceZoomTrack = tracks[0] || null;
+      const capabilities = scanInvoiceZoomTrack?.getCapabilities?.() || {};
+      const nativeZoom = capabilities.zoom;
+      const nativeZoomMax = Math.min(SCAN_INVOICE_MAX_ZOOM, Number(nativeZoom?.max) || SCAN_INVOICE_MAX_ZOOM);
+      scanInvoiceNativeZoom = nativeZoom && typeof scanInvoiceZoomTrack.applyConstraints === "function"
+        ? {
+            min: Math.max(SCAN_INVOICE_DEFAULT_ZOOM, Number(nativeZoom.min) || SCAN_INVOICE_DEFAULT_ZOOM),
+            max: Math.max(SCAN_INVOICE_DEFAULT_ZOOM, nativeZoomMax),
+            step: Number(nativeZoom.step) || SCAN_INVOICE_ZOOM_STEP,
+          }
+        : null;
+      updateScanInvoiceZoomControls();
+    }
+
+    async function tryApplyScanInvoiceNativeZoom(value) {
+      if (!scanInvoiceNativeZoom || !scanInvoiceZoomTrack?.applyConstraints) {
+        return false;
+      }
+
+      try {
+        await scanInvoiceZoomTrack.applyConstraints({ advanced: [{ zoom: value }] });
+        return true;
+      } catch (error) {
+        scanInvoiceNativeZoom = null;
+        return false;
+      }
+    }
+
+    function scanInvoiceCaptureZoom() {
+      return scanInvoiceUsingNativeZoom ? SCAN_INVOICE_DEFAULT_ZOOM : scanInvoiceZoom;
+    }
+
+    function scanInvoiceZoomStep() {
+      return scanInvoiceNativeZoom?.step || SCAN_INVOICE_ZOOM_STEP;
+    }
+
+    function normalizeScanInvoiceZoom(value) {
+      const number = Number(value);
+      const limits = scanInvoiceZoomLimits();
+      const next = Number.isFinite(number) ? number : scanInvoiceZoom;
+      const stepped = Math.round(next / limits.step) * limits.step;
+      return Number(clamp(stepped, limits.min, limits.max).toFixed(2));
+    }
+
+    function scanInvoiceZoomLimits() {
+      return {
+        min: SCAN_INVOICE_DEFAULT_ZOOM,
+        max: scanInvoiceNativeZoom?.max || SCAN_INVOICE_MAX_ZOOM,
+        step: scanInvoiceZoomStep(),
+      };
+    }
+
+    function updateScanInvoiceZoomControls() {
+      const limits = scanInvoiceZoomLimits();
+      if (els.scanInvoiceZoomSlider) {
+        els.scanInvoiceZoomSlider.min = String(limits.min);
+        els.scanInvoiceZoomSlider.max = String(limits.max);
+        els.scanInvoiceZoomSlider.step = String(limits.step);
+        els.scanInvoiceZoomSlider.value = String(scanInvoiceZoom);
+      }
+      if (els.scanInvoiceZoomValue) {
+        els.scanInvoiceZoomValue.textContent = `${scanInvoiceZoom.toFixed(1)}x`;
+      }
+      if (els.scanInvoiceZoomOutButton) {
+        els.scanInvoiceZoomOutButton.disabled = scanInvoiceZoom <= limits.min + 0.001;
+      }
+      if (els.scanInvoiceZoomInButton) {
+        els.scanInvoiceZoomInButton.disabled = scanInvoiceZoom >= limits.max - 0.001;
+      }
+    }
+
+    function applyScanInvoiceSoftwareZoom(value) {
+      const zoom = Number(value) || SCAN_INVOICE_DEFAULT_ZOOM;
+      if (els.scanInvoiceVideo?.style?.setProperty) {
+        els.scanInvoiceVideo.style.setProperty("--scan-invoice-zoom", String(zoom));
+      } else if (els.scanInvoiceVideo?.style) {
+        els.scanInvoiceVideo.style["--scan-invoice-zoom"] = String(zoom);
+      }
+    }
+
+    function bindScanInvoiceZoomGestures() {
+      const viewport = els.scanInvoiceViewport;
+      if (!viewport?.addEventListener) {
+        return;
+      }
+
+      viewport.addEventListener("touchstart", (event) => {
+        if (event.touches?.length !== 2) {
+          return;
+        }
+        scanInvoicePinch = {
+          distance: scanInvoiceTouchDistance(event.touches),
+          zoom: scanInvoiceZoom,
+        };
+      }, { passive: true });
+
+      viewport.addEventListener("touchmove", (event) => {
+        if (!scanInvoicePinch || event.touches?.length !== 2) {
+          return;
+        }
+        event.preventDefault();
+        const distance = scanInvoiceTouchDistance(event.touches);
+        if (scanInvoicePinch.distance > 0) {
+          updateScanInvoiceZoomFromControl(scanInvoicePinch.zoom * (distance / scanInvoicePinch.distance));
+        }
+      }, { passive: false });
+
+      viewport.addEventListener("touchend", (event) => {
+        if ((event.touches?.length || 0) < 2) {
+          scanInvoicePinch = null;
+        }
+      }, { passive: true });
+    }
+
+    function scanInvoiceTouchDistance(touches) {
+      const first = touches[0];
+      const second = touches[1];
+      return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+    }
+
+    function scanInvoiceCropSourceRect(video, frame, zoom = SCAN_INVOICE_DEFAULT_ZOOM) {
       const videoWidth = video.videoWidth;
       const videoHeight = video.videoHeight;
       const videoRect = video.getBoundingClientRect();
@@ -193,11 +368,29 @@
       const y = Math.round(clamp(rawY, 0, videoHeight - 1));
       const right = Math.round(clamp(rawX + rawWidth, x + 1, videoWidth));
       const bottom = Math.round(clamp(rawY + rawHeight, y + 1, videoHeight));
-      return {
+      return zoomScanInvoiceSourceRect({
         x,
         y,
         width: right - x,
         height: bottom - y,
+      }, videoWidth, videoHeight, zoom);
+    }
+
+    function zoomScanInvoiceSourceRect(source, videoWidth, videoHeight, zoom) {
+      const nextZoom = Math.max(SCAN_INVOICE_DEFAULT_ZOOM, Number(zoom) || SCAN_INVOICE_DEFAULT_ZOOM);
+      if (nextZoom <= SCAN_INVOICE_DEFAULT_ZOOM + 0.001) {
+        return source;
+      }
+
+      const width = Math.max(1, Math.round(source.width / nextZoom));
+      const height = Math.max(1, Math.round(source.height / nextZoom));
+      const centerX = source.x + source.width / 2;
+      const centerY = source.y + source.height / 2;
+      return {
+        x: Math.round(clamp(centerX - width / 2, 0, videoWidth - width)),
+        y: Math.round(clamp(centerY - height / 2, 0, videoHeight - height)),
+        width,
+        height,
       };
     }
 
@@ -306,6 +499,9 @@
       handleScanInvoice,
       handleScanInvoiceFileChange,
       handleCaptureScanInvoice,
+      handleScanInvoiceZoomInput,
+      handleScanInvoiceZoomOut,
+      handleScanInvoiceZoomIn,
       closeScanInvoiceCamera,
     };
   }

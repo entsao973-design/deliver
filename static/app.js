@@ -49,9 +49,14 @@ const els = {
   photoInput: document.querySelector("#photoInput"),
   scanInvoiceInput: document.querySelector("#scanInvoiceInput"),
   scanInvoiceDialog: document.querySelector("#scanInvoiceDialog"),
+  scanInvoiceViewport: document.querySelector("#scanInvoiceViewport"),
   scanInvoiceVideo: document.querySelector("#scanInvoiceVideo"),
   scanInvoiceFrame: document.querySelector("#scanInvoiceFrame"),
   scanInvoiceCanvas: document.querySelector("#scanInvoiceCanvas"),
+  scanInvoiceZoomOutButton: document.querySelector("#scanInvoiceZoomOutButton"),
+  scanInvoiceZoomInButton: document.querySelector("#scanInvoiceZoomInButton"),
+  scanInvoiceZoomSlider: document.querySelector("#scanInvoiceZoomSlider"),
+  scanInvoiceZoomValue: document.querySelector("#scanInvoiceZoomValue"),
   captureScanInvoiceButton: document.querySelector("#captureScanInvoiceButton"),
   closeScanInvoiceButton: document.querySelector("#closeScanInvoiceButton"),
   photoDialog: document.querySelector("#photoDialog"),
@@ -177,6 +182,9 @@ els.smartPhotoButton.addEventListener("click", smartDeliveryController.handleSma
 els.scanInvoiceButton.addEventListener("click", scanDeliveryController.handleScanInvoice);
 els.scanInvoiceInput.addEventListener("change", scanDeliveryController.handleScanInvoiceFileChange);
 els.captureScanInvoiceButton.addEventListener("click", scanDeliveryController.handleCaptureScanInvoice);
+els.scanInvoiceZoomSlider.addEventListener("input", scanDeliveryController.handleScanInvoiceZoomInput);
+els.scanInvoiceZoomOutButton.addEventListener("click", scanDeliveryController.handleScanInvoiceZoomOut);
+els.scanInvoiceZoomInButton.addEventListener("click", scanDeliveryController.handleScanInvoiceZoomIn);
 els.closeScanInvoiceButton.addEventListener("click", scanDeliveryController.closeScanInvoiceCamera);
 els.scanInvoiceDialog.addEventListener("cancel", (event) => {
   event.preventDefault();

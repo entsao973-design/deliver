@@ -783,6 +783,10 @@ select:focus {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scale(var(--scan-invoice-zoom, 1));
+  transform-origin: center center;
+  transition: transform 120ms ease;
+  will-change: transform;
 }
 
 .scan-invoice-frame {
@@ -799,12 +803,41 @@ select:focus {
 
 .scan-invoice-actions {
   display: grid;
-  padding: 10px;
+  padding: 8px 10px 10px;
   background: #ffffff;
 }
 
 .scan-invoice-actions button {
   width: 100%;
+}
+
+.scan-invoice-zoom {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 0;
+  background: #ffffff;
+}
+
+.scan-invoice-zoom-button {
+  min-height: 36px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.scan-invoice-zoom input {
+  min-height: 36px;
+  padding: 0;
+}
+
+.scan-invoice-zoom-value {
+  min-width: 42px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
 }
 
 .photo-dialog {

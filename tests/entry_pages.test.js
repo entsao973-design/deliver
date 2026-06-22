@@ -85,6 +85,7 @@ test("driver scan invoice button replaces refresh in summary and refresh moves t
   assert.match(html, /<video id="scanInvoiceVideo" class="scan-invoice-video" autoplay playsinline muted><\/video>/);
   assert.match(html, /<div id="scanInvoiceFrame" class="scan-invoice-frame" aria-hidden="true"><\/div>/);
   assert.match(html, /<canvas id="scanInvoiceCanvas" hidden><\/canvas>/);
+  assert.match(html, /<div class="scan-invoice-zoom" aria-label="掃號縮放">[\s\S]*<button id="scanInvoiceZoomOutButton"[\s\S]*aria-label="縮小"[\s\S]*<\/button>[\s\S]*<input id="scanInvoiceZoomSlider" type="range"[\s\S]*min="1"[\s\S]*max="3"[\s\S]*step="0.1"[\s\S]*value="1"[\s\S]*aria-label="掃號縮放比例"[\s\S]*\/>[\s\S]*<button id="scanInvoiceZoomInButton"[\s\S]*aria-label="放大"[\s\S]*<\/button>[\s\S]*<span id="scanInvoiceZoomValue"[\s\S]*>1.0x<\/span>/);
   assert.match(html, /<button id="captureScanInvoiceButton" class="primary-button" type="button">/);
   assert.match(html, /<button id="closeScanInvoiceButton" class="ghost-button" type="button">/);
   const driverApiScriptIndex = html.indexOf('<script src="/static/driver-api.js"></script>');
@@ -115,12 +116,19 @@ test("driver scan invoice button replaces refresh in summary and refresh moves t
   assert.match(appJs, /scanInvoiceVideo:\s*document\.querySelector\("#scanInvoiceVideo"\)/);
   assert.match(appJs, /scanInvoiceFrame:\s*document\.querySelector\("#scanInvoiceFrame"\)/);
   assert.match(appJs, /scanInvoiceCanvas:\s*document\.querySelector\("#scanInvoiceCanvas"\)/);
+  assert.match(appJs, /scanInvoiceZoomOutButton:\s*document\.querySelector\("#scanInvoiceZoomOutButton"\)/);
+  assert.match(appJs, /scanInvoiceZoomInButton:\s*document\.querySelector\("#scanInvoiceZoomInButton"\)/);
+  assert.match(appJs, /scanInvoiceZoomSlider:\s*document\.querySelector\("#scanInvoiceZoomSlider"\)/);
+  assert.match(appJs, /scanInvoiceZoomValue:\s*document\.querySelector\("#scanInvoiceZoomValue"\)/);
   assert.match(appJs, /captureScanInvoiceButton:\s*document\.querySelector\("#captureScanInvoiceButton"\)/);
   assert.match(appJs, /closeScanInvoiceButton:\s*document\.querySelector\("#closeScanInvoiceButton"\)/);
   assert.match(appJs, /els\.smartPhotoButton\.addEventListener\("click", smartDeliveryController\.handleSmartPhoto\);/);
   assert.match(appJs, /els\.scanInvoiceButton\.addEventListener\("click", scanDeliveryController\.handleScanInvoice\);/);
   assert.match(appJs, /els\.scanInvoiceInput\.addEventListener\("change", scanDeliveryController\.handleScanInvoiceFileChange\);/);
   assert.match(appJs, /els\.captureScanInvoiceButton\.addEventListener\("click", scanDeliveryController\.handleCaptureScanInvoice\);/);
+  assert.match(appJs, /els\.scanInvoiceZoomSlider\.addEventListener\("input", scanDeliveryController\.handleScanInvoiceZoomInput\);/);
+  assert.match(appJs, /els\.scanInvoiceZoomOutButton\.addEventListener\("click", scanDeliveryController\.handleScanInvoiceZoomOut\);/);
+  assert.match(appJs, /els\.scanInvoiceZoomInButton\.addEventListener\("click", scanDeliveryController\.handleScanInvoiceZoomIn\);/);
   assert.match(appJs, /els\.closeScanInvoiceButton\.addEventListener\("click", scanDeliveryController\.closeScanInvoiceCamera\);/);
   assert.doesNotMatch(appJs, /function handleSmartPhoto\(\)/);
   assert.doesNotMatch(appJs, /function smartPhotoErrorMessage\(error\)/);
@@ -132,8 +140,9 @@ test("driver scan invoice camera viewfinder is centered and crops the OCR target
   assert.match(css, /\.scan-invoice-dialog\s*\{[\s\S]*width:\s*min\(96vw,\s*560px\);[\s\S]*overflow:\s*hidden;/);
   assert.match(css, /\.scan-invoice-dialog\[open\]\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;/);
   assert.match(css, /\.scan-invoice-viewport\s*\{[\s\S]*position:\s*relative;[\s\S]*aspect-ratio:\s*3 \/ 4;[\s\S]*overflow:\s*hidden;/);
-  assert.match(css, /\.scan-invoice-video\s*\{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;[\s\S]*object-fit:\s*cover;/);
+  assert.match(css, /\.scan-invoice-video\s*\{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;[\s\S]*object-fit:\s*cover;[\s\S]*transform:\s*scale\(var\(--scan-invoice-zoom,\s*1\)\);/);
   assert.match(css, /\.scan-invoice-frame\s*\{[\s\S]*position:\s*absolute;[\s\S]*left:\s*10%;[\s\S]*right:\s*10%;[\s\S]*top:\s*42%;[\s\S]*height:\s*18%;[\s\S]*box-shadow:\s*0 0 0 999px/);
+  assert.match(css, /\.scan-invoice-zoom\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*40px minmax\(0,\s*1fr\) 40px auto;/);
 });
 
 test("driver smart photo dialog offers delivery status choices and candidate selection", () => {

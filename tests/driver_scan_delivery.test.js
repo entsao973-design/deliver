@@ -74,6 +74,15 @@ function createEls() {
           return { left: 110, top: 70, width: 200, height: 80 };
         },
       },
+      scanInvoiceZoomOutButton: { disabled: false },
+      scanInvoiceZoomInButton: { disabled: false },
+      scanInvoiceZoomSlider: {
+        min: "1",
+        max: "3",
+        step: "0.1",
+        value: "1",
+      },
+      scanInvoiceZoomValue: { textContent: "" },
       scanInvoiceCanvas: {
         width: 0,
         height: 0,
@@ -285,6 +294,51 @@ test("DriverScanDelivery opens an in-app viewfinder and sends only the crop to O
   assert.equal(els.smartPhotoDialog.open, true);
   assert.equal(appended.length, 1);
   assert.deepEqual(messages.map((entry) => entry.message), ["", "辨識單號中...", ""]);
+});
+
+test("DriverScanDelivery zooms the viewfinder crop before OCR", async () => {
+  const delivery = { id: "a1", company: "A1", invoice_no: "A1-1234", customer: "Customer", status: "" };
+  const { canvasCalls, els } = createEls();
+  const tracks = [{ stopped: false, stop() { this.stopped = true; } }];
+  const stream = { getTracks() { return tracks; } };
+  const { api } = loadScanDelivery({
+    File: function TestFile(parts, name, options) {
+      return { parts, name, type: options.type };
+    },
+    navigator: {
+      mediaDevices: {
+        async getUserMedia() {
+          return stream;
+        },
+      },
+    },
+    ScanInvoice: {
+      async recognizeText() {
+        return "1234";
+      },
+      outcomeForText() {
+        return { type: "single", candidates: [{ delivery, matchKind: "original", matchedText: "1234" }] };
+      },
+    },
+  });
+
+  const controller = api.createController({
+    els,
+    state: { deliveries: [delivery], pendingUploads: [] },
+    offlineQueueApi: null,
+    startCapture() {},
+    setMessage() {},
+  });
+
+  await controller.handleScanInvoice();
+  els.scanInvoiceZoomSlider.value = "2";
+  await controller.handleScanInvoiceZoomInput();
+  await controller.handleCaptureScanInvoice();
+
+  assert.equal(els.scanInvoiceCanvas.width, 250);
+  assert.equal(els.scanInvoiceCanvas.height, 100);
+  assert.deepEqual(canvasCalls[0].slice(1, 5), [375, 175, 250, 100]);
+  assert.equal(els.scanInvoiceZoomValue.textContent, "2.0x");
 });
 
 test("DriverScanDelivery shows a Chinese message when OCR finds no delivery", async () => {
