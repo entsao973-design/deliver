@@ -278,35 +278,31 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
     card.className = `${deleted ? "admin-card delivery-row deleted-card" : "admin-card delivery-row"}${hideDeliveryDate ? " hide-date" : ""}`;
     card.innerHTML = `
       <strong class="admin-customer"></strong>
-      <span class="admin-row-cell admin-date"></span>
-      <span class="admin-row-cell admin-company"></span>
-      <span class="admin-row-cell admin-invoice"></span>
-      <span class="admin-row-cell admin-driver"></span>
-      <span class="admin-row-cell admin-vehicle"></span>
+      <span class="admin-row-cell admin-document"></span>
+      <span class="admin-row-cell admin-route"></span>
       <span class="admin-row-cell admin-status"></span>
-      <div class="admin-actions admin-photo-action"></div>
-      <div class="admin-actions admin-delete-action"></div>
+      <div class="admin-actions admin-row-actions"></div>
     `;
     card.querySelector(".admin-customer").textContent = delivery.customer || "";
-    card.querySelector(".admin-date").textContent = delivery.delivery_date || "";
-    card.querySelector(".admin-company").textContent = delivery.company || "";
-    card.querySelector(".admin-invoice").textContent = delivery.invoice_no || "";
-    card.querySelector(".admin-driver").textContent = delivery.driver || "";
-    card.querySelector(".admin-vehicle").textContent = delivery.vehicle_no || "";
+    card.querySelector(".admin-document").textContent = [
+      hideDeliveryDate ? "" : delivery.delivery_date,
+      delivery.company,
+      delivery.invoice_no,
+    ].filter(Boolean).join(" | ");
+    card.querySelector(".admin-route").textContent = [delivery.driver, delivery.vehicle_no].filter(Boolean).join(" | ");
     card.querySelector(".admin-status").textContent = delivery.status_label || "";
 
-    const photoActions = card.querySelector(".admin-photo-action");
-    const deleteActions = card.querySelector(".admin-delete-action");
+    const rowActions = card.querySelector(".admin-row-actions");
     if (delivery.has_photo) {
       if (!AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
-        photoActions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
+        rowActions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
       }
     }
     if (deleted) {
-      deleteActions.append(makeAdminButton("還原", "secondary-button", (button) => restoreDelivery(delivery, button)));
-      deleteActions.append(makeAdminButton("永久刪除", "danger-button", (button) => permanentlyDelete(delivery, button)));
+      rowActions.append(makeAdminButton("還原", "secondary-button", (button) => restoreDelivery(delivery, button)));
+      rowActions.append(makeAdminButton("永久刪除", "danger-button", (button) => permanentlyDelete(delivery, button)));
     } else {
-      deleteActions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
+      rowActions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
     }
     if (AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
       card.append(createAdminInlinePhoto(delivery));
