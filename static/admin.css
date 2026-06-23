@@ -73,7 +73,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(220px, 1.2fr) minmax(90px, 0.7fr);
   gap: 8px;
-  padding: 10px;
+  padding: 8px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;

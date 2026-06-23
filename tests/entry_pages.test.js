@@ -313,7 +313,7 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(7,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
   assert.match(css, /\.admin-logout-button\s*\{[\s\S]*min-height:\s*40px;[\s\S]*padding:\s*0 10px;/);
   assert.match(css, /\.admin-view\s*\{[\s\S]*gap:\s*4px;/);
-  assert.match(css, /\.filter-grid\s*\{[\s\S]*gap:\s*8px;[\s\S]*padding:\s*10px;/);
+  assert.match(css, /\.filter-grid\s*\{[\s\S]*gap:\s*8px;[\s\S]*padding:\s*8px 10px;/);
   assert.match(css, /\.filter-grid label\s*\{[\s\S]*gap:\s*4px;[\s\S]*font-size:\s*13px;/);
   assert.match(css, /\.filter-grid input,[\s\S]*\.filter-grid select\s*\{[\s\S]*min-height:\s*38px;/);
   assert.match(css, /\.filter-grid button\s*\{[\s\S]*min-height:\s*38px;/);
