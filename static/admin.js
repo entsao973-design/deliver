@@ -314,7 +314,10 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
       delivery.invoice_no,
     ].filter(Boolean).join(" | ");
     card.querySelector(".admin-route").textContent = [delivery.driver, delivery.vehicle_no].filter(Boolean).join(" | ");
-    card.querySelector(".admin-status").textContent = delivery.status_label || "";
+    const statusEl = card.querySelector(".admin-status");
+    statusEl.textContent = delivery.status_label || "";
+    statusEl.classList.toggle("status-normal", delivery.status === "normal");
+    statusEl.classList.toggle("status-abnormal", delivery.status === "abnormal");
 
     const rowActions = card.querySelector(".admin-row-actions");
     if (delivery.has_photo) {

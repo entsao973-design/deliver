@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.23.3";
+const APP_VERSION = "2026.06.23.4";
 const CACHE_NAME = `delivery-proof-pwa-${APP_VERSION}`;
 const SHELL_ASSETS = [
   "/",

@@ -360,6 +360,18 @@ test("admin delivery list uses full width compact five-block rows", () => {
   assert.match(adminJs, /card\.querySelector\("\.admin-route"\)\.textContent = \[delivery\.driver, delivery\.vehicle_no\]\.filter\(Boolean\)\.join\(" \\| "\);/);
 });
 
+test("admin delivery status highlights normal green and abnormal red", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /const statusEl = card\.querySelector\("\.admin-status"\);/);
+  assert.match(adminJs, /statusEl\.textContent = delivery\.status_label \|\| "";/);
+  assert.match(adminJs, /statusEl\.classList\.toggle\("status-normal", delivery\.status === "normal"\);/);
+  assert.match(adminJs, /statusEl\.classList\.toggle\("status-abnormal", delivery\.status === "abnormal"\);/);
+  assert.match(css, /\.admin-card\.delivery-row \.admin-status\.status-normal\s*\{[\s\S]*color:\s*var\(--normal\);[\s\S]*font-weight:\s*800;/);
+  assert.match(css, /\.admin-card\.delivery-row \.admin-status\.status-abnormal\s*\{[\s\S]*color:\s*var\(--danger\);[\s\S]*font-weight:\s*800;/);
+});
+
 test("admin list controls stay sticky above scrolling lists", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");

@@ -215,6 +215,16 @@
   justify-content: flex-end;
 }
 
+.admin-card.delivery-row .admin-status.status-normal {
+  color: var(--normal);
+  font-weight: 800;
+}
+
+.admin-card.delivery-row .admin-status.status-abnormal {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 .admin-card.delivery-row .admin-actions button {
   min-height: 28px;
   padding: 0 8px;
