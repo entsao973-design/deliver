@@ -259,10 +259,11 @@ async function loadDeliveries(deleted) {
   if (driverEl.value) params.set("driver", driverEl.value);
 
   const result = await adminApi(`/api/admin/deliveries?${params}`);
-  renderDeliveries(listEl, result.deliveries, deleted);
+  const hideDeliveryDate = Boolean(startDateEl.value && startDateEl.value === endDateEl.value);
+  renderDeliveries(listEl, result.deliveries, deleted, hideDeliveryDate);
 }
 
-function renderDeliveries(container, deliveries, deleted) {
+function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = false) {
   container.replaceChildren();
   if (deliveries.length === 0) {
     const empty = document.createElement("div");
@@ -274,30 +275,38 @@ function renderDeliveries(container, deliveries, deleted) {
 
   for (const delivery of deliveries) {
     const card = document.createElement("article");
-    card.className = deleted ? "admin-card deleted-card" : "admin-card";
+    card.className = `${deleted ? "admin-card delivery-row deleted-card" : "admin-card delivery-row"}${hideDeliveryDate ? " hide-date" : ""}`;
     card.innerHTML = `
-      <div>
-        <h3></h3>
-        <div class="admin-meta line-one"></div>
-      </div>
-      <div class="admin-meta line-two"></div>
-      <div class="admin-actions"></div>
+      <strong class="admin-customer"></strong>
+      <span class="admin-row-cell admin-date"></span>
+      <span class="admin-row-cell admin-company"></span>
+      <span class="admin-row-cell admin-invoice"></span>
+      <span class="admin-row-cell admin-driver"></span>
+      <span class="admin-row-cell admin-vehicle"></span>
+      <span class="admin-row-cell admin-status"></span>
+      <div class="admin-actions admin-photo-action"></div>
+      <div class="admin-actions admin-delete-action"></div>
     `;
-    card.querySelector("h3").textContent = delivery.customer;
-    card.querySelector(".line-one").textContent = `${delivery.delivery_date} | ${delivery.company} | ${delivery.invoice_no}`;
-    card.querySelector(".line-two").textContent = `${delivery.driver} | ${delivery.vehicle_no} | ${delivery.status_label}`;
+    card.querySelector(".admin-customer").textContent = delivery.customer || "";
+    card.querySelector(".admin-date").textContent = delivery.delivery_date || "";
+    card.querySelector(".admin-company").textContent = delivery.company || "";
+    card.querySelector(".admin-invoice").textContent = delivery.invoice_no || "";
+    card.querySelector(".admin-driver").textContent = delivery.driver || "";
+    card.querySelector(".admin-vehicle").textContent = delivery.vehicle_no || "";
+    card.querySelector(".admin-status").textContent = delivery.status_label || "";
 
-    const actions = card.querySelector(".admin-actions");
+    const photoActions = card.querySelector(".admin-photo-action");
+    const deleteActions = card.querySelector(".admin-delete-action");
     if (delivery.has_photo) {
       if (!AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
-        actions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
+        photoActions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
       }
     }
     if (deleted) {
-      actions.append(makeAdminButton("還原", "secondary-button", (button) => restoreDelivery(delivery, button)));
-      actions.append(makeAdminButton("永久刪除", "danger-button", (button) => permanentlyDelete(delivery, button)));
+      deleteActions.append(makeAdminButton("還原", "secondary-button", (button) => restoreDelivery(delivery, button)));
+      deleteActions.append(makeAdminButton("永久刪除", "danger-button", (button) => permanentlyDelete(delivery, button)));
     } else {
-      actions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
+      deleteActions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
     }
     if (AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
       card.append(createAdminInlinePhoto(delivery));

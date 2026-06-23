@@ -240,7 +240,7 @@ test("admin deleted deliveries can be restored before permanent delete", () => {
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
   const webPy = fs.readFileSync(path.join(root, "delivery_app", "web.py"), "utf8");
 
-  assert.match(adminJs, /if \(deleted\) \{\s*actions\.append\(makeAdminButton\("還原", "secondary-button", \(button\) => restoreDelivery\(delivery, button\)\)\);\s*actions\.append\(makeAdminButton\("永久刪除"/);
+  assert.match(adminJs, /if \(deleted\) \{\s*deleteActions\.append\(makeAdminButton\("還原", "secondary-button", \(button\) => restoreDelivery\(delivery, button\)\)\);\s*deleteActions\.append\(makeAdminButton\("永久刪除"/);
   assert.match(adminJs, /async function restoreDelivery\(delivery, button\) \{/);
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "還原中\.\.\.",/);
   assert.match(adminJs, /adminApi\(`\/api\/admin\/deliveries\/\$\{delivery\.id\}\/restore`/);
@@ -325,6 +325,23 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(adminEls\.archivePhotos, "封存中\.\.\.",/);
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "刪除中\.\.\.",/);
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "永久刪除中\.\.\.",/);
+});
+
+test("admin delivery list uses full width compact one-line rows", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(css, /\.admin-shell\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/);
+  assert.match(css, /\.admin-card\.delivery-row\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*2fr\) minmax\(88px,\s*0\.8fr\) minmax\(140px,\s*1\.2fr\) minmax\(120px,\s*1fr\) minmax\(88px,\s*0\.8fr\) minmax\(92px,\s*0\.8fr\) minmax\(76px,\s*0\.7fr\) auto auto;[\s\S]*font-size:\s*12px;[\s\S]*color:\s*#000000;/);
+  assert.match(css, /\.admin-card\.delivery-row\.hide-date\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*2fr\) minmax\(140px,\s*1\.2fr\) minmax\(120px,\s*1fr\) minmax\(88px,\s*0\.8fr\) minmax\(92px,\s*0\.8fr\) minmax\(76px,\s*0\.7fr\) auto auto;/);
+  assert.match(css, /\.admin-card\.delivery-row \.admin-customer\s*\{[\s\S]*font-size:\s*13px;[\s\S]*font-weight:\s*800;[\s\S]*color:\s*#000000;/);
+  assert.match(css, /\.admin-card\.delivery-row \.admin-row-cell,[\s\S]*\.admin-card\.delivery-row \.admin-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*color:\s*#000000;/);
+  assert.match(css, /\.admin-card\.delivery-row\.hide-date \.admin-date\s*\{[\s\S]*display:\s*none;/);
+  assert.match(adminJs, /const hideDeliveryDate = Boolean\(startDateEl\.value && startDateEl\.value === endDateEl\.value\);/);
+  assert.match(adminJs, /renderDeliveries\(listEl, result\.deliveries, deleted, hideDeliveryDate\);/);
+  assert.match(adminJs, /function renderDeliveries\(container, deliveries, deleted, hideDeliveryDate = false\)/);
+  assert.match(adminJs, /card\.className = `\$\{deleted \? "admin-card delivery-row deleted-card" : "admin-card delivery-row"\}\$\{hideDeliveryDate \? " hide-date" : ""\}`;/);
+  assert.match(adminJs, /<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-date"><\/span>\s*<span class="admin-row-cell admin-company"><\/span>\s*<span class="admin-row-cell admin-invoice"><\/span>\s*<span class="admin-row-cell admin-driver"><\/span>\s*<span class="admin-row-cell admin-vehicle"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-photo-action"><\/div>\s*<div class="admin-actions admin-delete-action"><\/div>/);
 });
 
 test("admin list controls stay sticky above scrolling lists", () => {
