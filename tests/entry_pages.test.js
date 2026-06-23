@@ -328,15 +328,15 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "永久刪除中\.\.\.",/);
 });
 
-test("admin filter row shows filtered delivery counts between driver and query", () => {
+test("admin filter row shows query before filtered delivery counts", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
-  assert.match(html, /<select id="filterDriver"><\/select>\s*<\/label>\s*<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="applyFilters"/);
-  assert.match(html, /<select id="deletedFilterDriver"><\/select>\s*<\/label>\s*<div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="applyDeletedFilters"/);
-  assert.match(css, /\.filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(220px,\s*1\.2fr\) minmax\(90px,\s*0\.7fr\);/);
-  assert.match(css, /\.filter-counts\s*\{[\s\S]*align-self:\s*end;[\s\S]*justify-content:\s*center;[\s\S]*min-height:\s*34px;[\s\S]*white-space:\s*nowrap;/);
+  assert.match(html, /<select id="filterDriver"><\/select>\s*<\/label>\s*<button id="applyFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>/);
+  assert.match(html, /<select id="deletedFilterDriver"><\/select>\s*<\/label>\s*<button id="applyDeletedFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>/);
+  assert.match(css, /\.filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\);/);
+  assert.match(css, /\.filter-counts\s*\{[\s\S]*align-self:\s*end;[\s\S]*justify-content:\s*center;[\s\S]*min-height:\s*34px;[\s\S]*font-size:\s*14px;[\s\S]*white-space:\s*nowrap;/);
   assert.match(adminJs, /deliveryCounts:\s*document\.querySelector\("#adminDeliveryCounts"\)/);
   assert.match(adminJs, /deletedDeliveryCounts:\s*document\.querySelector\("#deletedDeliveryCounts"\)/);
   assert.match(adminJs, /updateDeliveryCounts\(deleted \? adminEls\.deletedDeliveryCounts : adminEls\.deliveryCounts, result\.deliveries\);/);
