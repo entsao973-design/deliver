@@ -32,10 +32,12 @@ const adminEls = {
   filterEndDate: document.querySelector("#filterEndDate"),
   filterCompany: document.querySelector("#filterCompany"),
   filterDriver: document.querySelector("#filterDriver"),
+  deliveryCounts: document.querySelector("#adminDeliveryCounts"),
   deletedFilterStartDate: document.querySelector("#deletedFilterStartDate"),
   deletedFilterEndDate: document.querySelector("#deletedFilterEndDate"),
   deletedFilterCompany: document.querySelector("#deletedFilterCompany"),
   deletedFilterDriver: document.querySelector("#deletedFilterDriver"),
+  deletedDeliveryCounts: document.querySelector("#deletedDeliveryCounts"),
   applyFilters: document.querySelector("#applyFilters"),
   applyDeletedFilters: document.querySelector("#applyDeletedFilters"),
   toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
@@ -260,7 +262,29 @@ async function loadDeliveries(deleted) {
 
   const result = await adminApi(`/api/admin/deliveries?${params}`);
   const hideDeliveryDate = Boolean(startDateEl.value && startDateEl.value === endDateEl.value);
+  updateDeliveryCounts(deleted ? adminEls.deletedDeliveryCounts : adminEls.deliveryCounts, result.deliveries);
   renderDeliveries(listEl, result.deliveries, deleted, hideDeliveryDate);
+}
+
+function updateDeliveryCounts(element, deliveries) {
+  if (!element) {
+    return;
+  }
+
+  const totalCount = deliveries.length;
+  const deliveredCount = deliveries.filter((delivery) => Boolean(delivery.status)).length;
+  const pendingCount = totalCount - deliveredCount;
+  element.replaceChildren(
+    makeCountSpan(`已達交: ${deliveredCount}`),
+    makeCountSpan(`未達交: ${pendingCount}`),
+    makeCountSpan(`共: ${totalCount}`),
+  );
+}
+
+function makeCountSpan(text) {
+  const span = document.createElement("span");
+  span.textContent = text;
+  return span;
 }
 
 function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = false) {

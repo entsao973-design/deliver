@@ -86,6 +86,11 @@
             <span>物流士</span>
             <select id="filterDriver"></select>
           </label>
+          <div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">
+            <span>已達交: 0</span>
+            <span>未達交: 0</span>
+            <span>共: 0</span>
+          </div>
           <button id="applyFilters" class="secondary-button" type="button">查詢</button>
         </div>
         <section id="adminDeliveryList" class="admin-list"></section>
@@ -109,6 +114,11 @@
             <span>物流士</span>
             <select id="deletedFilterDriver"></select>
           </label>
+          <div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">
+            <span>已達交: 0</span>
+            <span>未達交: 0</span>
+            <span>共: 0</span>
+          </div>
           <button id="applyDeletedFilters" class="secondary-button" type="button">查詢</button>
         </div>
         <section id="deletedDeliveryList" class="admin-list deleted-list"></section>

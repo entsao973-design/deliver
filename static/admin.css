@@ -71,7 +71,7 @@
 
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(220px, 1.2fr) minmax(90px, 0.7fr);
   gap: 8px;
   padding: 10px;
   background: var(--panel);
@@ -94,6 +94,19 @@
   align-self: end;
   min-height: 38px;
   padding: 0 10px;
+}
+
+.filter-counts {
+  align-self: end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 38px;
+  color: #000000;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 #adminMessage:empty {
