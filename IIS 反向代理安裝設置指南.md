@@ -6,7 +6,7 @@
 
 ```text
 外部網址：https://dli.morris.com.tw
-IIS 反向代理目標：http://192.168.0.5:8000
+IIS 反向代理目標：http://127.0.0.1:8000
 Python 平台預設 port：8000
 ```
 
@@ -30,7 +30,7 @@ http://127.0.0.1:8000
   -> https://dli.morris.com.tw
   -> IIS :443 HTTPS
   -> URL Rewrite / ARR
-  -> http://192.168.0.5:8000
+  -> http://127.0.0.1:8000
   -> Python 配送存證平台
   -> SQL Server
   -> storage/photos
@@ -49,12 +49,12 @@ http://127.0.0.1:8000
 
 - 網域 `dli.morris.com.tw` 已指向 IIS 對外入口。
 - 防火牆允許外部 TCP `80`、`443` 到 IIS。
-- IIS 主機可以連到 Python 主機 `192.168.0.5:8000`。
+- IIS 主機可以連到 Python 主機 `127.0.0.1:8000`。
 - Python 平台已可用內部網址開啟，例如：
 
 ```powershell
-Invoke-WebRequest http://192.168.0.5:8000/driver -UseBasicParsing
-Invoke-WebRequest http://192.168.0.5:8000/admin -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:8000/driver -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:8000/admin -UseBasicParsing
 ```
 
 若 IIS 和 Python 在同一台主機，改測：
@@ -180,13 +180,13 @@ ARR 讓 IIS 具備代理轉送能力。
 ### 7.1 建立網站資料夾
 
 ```powershell
-New-Item -ItemType Directory -Force C:\inetpub\DeliveryProofProxy
+New-Item -ItemType Directory -Force C:\inetpub\dli
 ```
 
 新增一個簡單測試頁：
 
 ```powershell
-Set-Content -Encoding UTF8 C:\inetpub\DeliveryProofProxy\index.html "DeliveryProof IIS Proxy"
+Set-Content -Encoding UTF8 C:\inetpub\dli\index.html "DeliveryProof IIS Proxy"
 ```
 
 ### 7.2 建立 IIS 網站
@@ -194,8 +194,8 @@ Set-Content -Encoding UTF8 C:\inetpub\DeliveryProofProxy\index.html "DeliveryPro
 1. 開啟 `IIS Manager`。
 2. 右鍵 `Sites` -> `Add Website...`。
 3. 填入：
-   - Site name：`DeliveryProofProxy`
-   - Physical path：`C:\inetpub\DeliveryProofProxy`
+   - Site name：`dli`
+   - Physical path：`C:\inetpub\dli`
    - Type：`http`
    - IP address：`All Unassigned`
    - Port：`80`
@@ -206,7 +206,7 @@ Set-Content -Encoding UTF8 C:\inetpub\DeliveryProofProxy\index.html "DeliveryPro
 
 - 停用 `Default Web Site`，或
 - 將 `Default Web Site` 綁定改成其他 port，或
-- 確保 `DeliveryProofProxy` 有正確 Host name。
+- 確保 `dli` 有正確 Host name。
 
 ## 8. 啟用 ARR Proxy
 
@@ -240,7 +240,7 @@ Excel 匯入可能需要較長時間，ARR proxy timeout 不要設太短。
 
 ### 9.1 使用 IIS Manager 新增規則
 
-1. 點選 `DeliveryProofProxy` 網站。
+1. 點選 `dli` 網站。
 2. 開啟 `URL Rewrite`。
 3. 右側點選 `Add Rule(s)...`。
 4. 選擇 `Blank rule`。
@@ -250,7 +250,7 @@ Excel 匯入可能需要較長時間，ARR proxy timeout 不要設太短。
    - Using：`Regular Expressions`
    - Pattern：`(.*)`
    - Action type：`Rewrite`
-   - Rewrite URL：`http://192.168.0.5:8000/{R:1}`
+   - Rewrite URL： http://127.0.0.1:8000/{R:1} 
    - Append query string：勾選
    - Stop processing of subsequent rules：勾選
 6. 按 `Apply`。
@@ -263,7 +263,7 @@ http://127.0.0.1:8000/{R:1}
 
 ### 9.2 建議 web.config 範例
 
-可在 `C:\inetpub\DeliveryProofProxy\web.config` 使用以下範例。
+可在 `C:\inetpub\dli\web.config` 使用以下範例。
 
 此版本只做反向代理，不含強制 HTTPS。強制 HTTPS 請看 SSL 指南。
 
@@ -280,7 +280,7 @@ http://127.0.0.1:8000/{R:1}
       <rules>
         <rule name="ReverseProxyToDeliveryProof" stopProcessing="true">
           <match url="(.*)" />
-          <action type="Rewrite" url="http://192.168.0.5:8000/{R:1}" appendQueryString="true" />
+          <action type="Rewrite" url="http://127.0.0.1:8000/{R:1}" appendQueryString="true" />
         </rule>
       </rules>
     </rewrite>
@@ -306,8 +306,8 @@ Excel 匯入與照片上傳要注意：
 ### 11.1 測內部 Python
 
 ```powershell
-Invoke-WebRequest http://192.168.0.5:8000/driver -UseBasicParsing
-Invoke-WebRequest http://192.168.0.5:8000/admin -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:8000/driver -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:8000/admin -UseBasicParsing
 ```
 
 ### 11.2 測 IIS HTTP
@@ -341,14 +341,14 @@ https://dli.morris.com.tw/admin
 
 - Python 服務沒有啟動。
 - Python 服務沒有 listen `8000`。
-- IIS 主機連不到 `192.168.0.5:8000`。
+- IIS 主機連不到 `127.0.0.1:8000`。
 - Windows 防火牆擋住 `8000`。
 
 檢查：
 
 ```powershell
-Test-NetConnection 192.168.0.5 -Port 8000
-Invoke-WebRequest http://192.168.0.5:8000/static/app-version.json -UseBasicParsing
+Test-NetConnection 127.0.0.1 -Port 8000
+Invoke-WebRequest http://127.0.0.1:8000/static/app-version.json -UseBasicParsing
 ```
 
 ### 12.2 404 Not Found
@@ -357,13 +357,13 @@ Invoke-WebRequest http://192.168.0.5:8000/static/app-version.json -UseBasicParsi
 
 - URL Rewrite 規則沒有套在正確網站。
 - 網站 Host name 綁定錯誤。
-- IIS 請求進到 `Default Web Site` 而不是 `DeliveryProofProxy`。
+- IIS 請求進到 `Default Web Site` 而不是 `dli`。
 
 檢查：
 
 - IIS `Sites` 的 bindings。
-- `DeliveryProofProxy` 是否 started。
-- `web.config` 是否在 `C:\inetpub\DeliveryProofProxy`。
+- `dli` 是否 started。
+- `web.config` 是否在 `C:\inetpub\dli`。
 
 ### 12.3 Excel 或照片上傳失敗
 
