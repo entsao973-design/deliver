@@ -33,10 +33,12 @@ from .import_diagnostics import write_import_log
 from .repository import (
     GEOCODE_FIELDS,
     STATUS_LABELS,
+    cleanup_history_files,
     date_to_folder,
     decode_image_data_url,
     list_photo_files,
     normalize_delivery_date,
+    parse_cleanup_date_range,
     photo_timestamp,
     safe_path_part,
     unique_archive_name,
@@ -760,6 +762,30 @@ WHERE {deleted_clause}
         except OSError:
             return None
         return path if path.exists() else None
+
+    def cleanup_delivery_history(self, start_date: str, end_date: str) -> dict[str, int]:
+        start, end = parse_cleanup_date_range(start_date, end_date)
+        with self._lock:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                try:
+                    cursor.execute(
+                        """
+DELETE FROM dbo.deliveries
+WHERE delivery_date >= ?
+  AND delivery_date <= ?
+""",
+                        start.isoformat(),
+                        end.isoformat(),
+                    )
+                    deleted_records = max(int(cursor.rowcount or 0), 0)
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                    raise
+
+        file_summary = cleanup_history_files(self.photo_root, self.archive_root, start, end)
+        return {"deleted_records": deleted_records, **file_summary}
 
     def filter_options(
         self,
