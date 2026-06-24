@@ -40,6 +40,10 @@ GEOCODE_FIELDS = (
 )
 
 
+class HistoryCleanupError(RuntimeError):
+    pass
+
+
 class DeliveryRepository:
     def __init__(
         self,
@@ -647,6 +651,20 @@ def parse_cleanup_date_range(start_date: str, end_date: str) -> tuple[date, date
 
 
 def cleanup_history_files(
+    photo_root: Path,
+    archive_root: Path,
+    start: date,
+    end: date,
+) -> dict[str, int]:
+    try:
+        return _cleanup_history_files(photo_root, archive_root, start, end)
+    except OSError as exc:
+        raise HistoryCleanupError(
+            "配送紀錄已清除，但照片或封存 ZIP 清理未完整完成，請使用相同日期區間再次執行"
+        ) from exc
+
+
+def _cleanup_history_files(
     photo_root: Path,
     archive_root: Path,
     start: date,

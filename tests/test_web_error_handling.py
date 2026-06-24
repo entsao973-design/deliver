@@ -6,6 +6,7 @@ import unittest
 from contextlib import contextmanager
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from delivery_app.web import DeliveryServer, load_config
 
@@ -309,6 +310,30 @@ class WebErrorHandlingTest(unittest.TestCase):
                 self.assertIn("application/json", content_type)
                 self.assertIn(expected_message, content)
                 self.assertEqual(saved_ids, ["keep"])
+
+    def test_admin_cleanup_reports_when_file_cleanup_is_incomplete(self):
+        deliveries = [make_web_delivery("remove", "2026-06-10")]
+        with running_server_with_deliveries(deliveries) as (address, data_file):
+            photo_folder = data_file.parent / "photos" / "20260610"
+            photo_folder.mkdir(parents=True)
+            with patch("delivery_app.repository.shutil.rmtree", side_effect=PermissionError("locked")):
+                status, content_type, content = request_json(
+                    address,
+                    "POST",
+                    "/api/admin/maintenance/cleanup",
+                    body={
+                        "token": "admin-token",
+                        "start_date": "2026-06-10",
+                        "end_date": "2026-06-10",
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+            saved = json.loads(data_file.read_text(encoding="utf-8"))
+
+        self.assertEqual(status, 500)
+        self.assertIn("application/json", content_type)
+        self.assertIn("清理未完整完成", content)
+        self.assertEqual(saved["deliveries"], [])
 
 
 def make_web_delivery(record_id, delivery_date, status=None, deleted_at=None):

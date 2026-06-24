@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from .auth import UserStore
 from .geocoding import make_geocoder
 from .import_diagnostics import write_import_log
-from .repository import DeliveryRepository
+from .repository import DeliveryRepository, HistoryCleanupError
 from .scan_ocr import ScanOcrError, decode_scan_image_data_url, make_scan_ocr
 
 
@@ -487,10 +487,14 @@ class DeliveryServer:
                 body = self._read_json()
                 if not self._admin_from_body(body):
                     return
-                summary = app.repo.cleanup_delivery_history(
-                    str(body.get("start_date", "")),
-                    str(body.get("end_date", "")),
-                )
+                try:
+                    summary = app.repo.cleanup_delivery_history(
+                        str(body.get("start_date", "")),
+                        str(body.get("end_date", "")),
+                    )
+                except HistoryCleanupError as exc:
+                    self._json_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                    return
                 self._send_json({"ok": True, "summary": summary})
 
             def _handle_admin_archive_download(self, parsed, filename: str) -> None:

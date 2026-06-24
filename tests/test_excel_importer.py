@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 import openpyxl
 
@@ -535,6 +536,34 @@ class ImporterRulesTest(unittest.TestCase):
                 repo.cleanup_delivery_history("2026-02-30", "2026-03-01")
             with self.assertRaisesRegex(ValueError, "開始日期"):
                 repo.cleanup_delivery_history("2026-03-02", "2026-03-01")
+
+    def test_cleanup_delivery_history_reports_incomplete_file_cleanup_after_records_are_removed(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_file = root / "deliveries.json"
+            photo_root = root / "photos"
+            archive_root = root / "archives"
+            data_file.write_text(
+                json.dumps(
+                    {
+                        "deliveries": [
+                            make_delivery_record("remove", "2026-06-10", "Company", "Driver"),
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (photo_root / "20260610").mkdir(parents=True)
+            archive_root.mkdir()
+            repo = DeliveryRepository(None, str(data_file), str(photo_root), str(archive_root))
+
+            with patch("delivery_app.repository.shutil.rmtree", side_effect=PermissionError("locked")):
+                with self.assertRaisesRegex(RuntimeError, "清理未完整完成"):
+                    repo.cleanup_delivery_history("2026-06-10", "2026-06-10")
+
+            saved = json.loads(data_file.read_text(encoding="utf-8"))
+            self.assertEqual(saved["deliveries"], [])
 
 
 class UserStoreTest(unittest.TestCase):
