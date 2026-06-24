@@ -439,6 +439,103 @@ class ImporterRulesTest(unittest.TestCase):
             with zipfile.ZipFile(archive_path) as zip_file:
                 self.assertIn(f"{delivery['invoice_no']}.JPG", zip_file.namelist())
 
+    def test_cleanup_delivery_history_removes_all_records_and_files_in_inclusive_range(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_file = root / "deliveries.json"
+            photo_root = root / "photos"
+            archive_root = root / "archives"
+            records = [
+                make_delivery_record("before", "2026-06-09", "Before", "Driver"),
+                make_delivery_record("open", "2026-06-10", "Open", "Driver"),
+                {**make_delivery_record("done", "2026-06-11", "Done", "Driver"), "status": "normal"},
+                {
+                    **make_delivery_record(
+                        "deleted",
+                        "2026-06-12",
+                        "Deleted",
+                        "Driver",
+                        "2026-06-13T10:00:00",
+                    ),
+                    "status": "abnormal",
+                },
+                make_delivery_record("after", "2026-06-13", "After", "Driver"),
+            ]
+            data_file.write_text(json.dumps({"deliveries": records}, ensure_ascii=False), encoding="utf-8")
+            for folder in (
+                "20260609",
+                "20260610",
+                "20260611",
+                "20260612",
+                "20260613",
+                "20261340",
+                "notes",
+            ):
+                (photo_root / folder).mkdir(parents=True)
+                (photo_root / folder / "file.jpg").write_bytes(b"photo")
+            archive_root.mkdir()
+            for filename in (
+                "20260609_Before.zip",
+                "20260610_Open.zip",
+                "20260612_Deleted.ZIP",
+                "20260613_After.zip",
+                "20261340_Invalid.zip",
+                "unmatched.zip",
+            ):
+                (archive_root / filename).write_bytes(b"zip")
+
+            repo = DeliveryRepository(None, str(data_file), str(photo_root), str(archive_root))
+            summary = repo.cleanup_delivery_history("2026-06-10", "2026-06-12")
+
+            saved_ids = [
+                item["id"]
+                for item in json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]
+            ]
+            self.assertEqual(saved_ids, ["before", "after"])
+            self.assertEqual(
+                summary,
+                {
+                    "deleted_records": 3,
+                    "deleted_photo_date_folders": 3,
+                    "deleted_archives": 2,
+                },
+            )
+            self.assertFalse((photo_root / "20260610").exists())
+            self.assertFalse((photo_root / "20260611").exists())
+            self.assertFalse((photo_root / "20260612").exists())
+            self.assertTrue((photo_root / "20260609").exists())
+            self.assertTrue((photo_root / "20260613").exists())
+            self.assertTrue((photo_root / "20261340").exists())
+            self.assertTrue((photo_root / "notes").exists())
+            self.assertTrue((archive_root / "20260609_Before.zip").exists())
+            self.assertTrue((archive_root / "20260613_After.zip").exists())
+            self.assertTrue((archive_root / "20261340_Invalid.zip").exists())
+            self.assertTrue((archive_root / "unmatched.zip").exists())
+
+            self.assertEqual(
+                repo.cleanup_delivery_history("2026-06-10", "2026-06-12"),
+                {
+                    "deleted_records": 0,
+                    "deleted_photo_date_folders": 0,
+                    "deleted_archives": 0,
+                },
+            )
+
+    def test_cleanup_delivery_history_rejects_invalid_date_range(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = DeliveryRepository(
+                None,
+                str(root / "deliveries.json"),
+                str(root / "photos"),
+                str(root / "archives"),
+            )
+
+            with self.assertRaisesRegex(ValueError, "日期格式"):
+                repo.cleanup_delivery_history("2026-02-30", "2026-03-01")
+            with self.assertRaisesRegex(ValueError, "開始日期"):
+                repo.cleanup_delivery_history("2026-03-02", "2026-03-01")
+
 
 class UserStoreTest(unittest.TestCase):
     def test_locks_after_five_failed_logins(self):

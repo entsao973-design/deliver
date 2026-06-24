@@ -3,9 +3,10 @@ from __future__ import annotations
 import base64
 import json
 import re
+import shutil
 import threading
 import zipfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -331,6 +332,23 @@ class DeliveryRepository:
             return None
         return path if path.exists() else None
 
+    def cleanup_delivery_history(self, start_date: str, end_date: str) -> dict[str, int]:
+        start, end = parse_cleanup_date_range(start_date, end_date)
+        with self._lock:
+            data = self._read_data_unlocked()
+            deliveries = data.get("deliveries", [])
+            remaining = [
+                record
+                for record in deliveries
+                if not start.isoformat() <= str(record.get("delivery_date", "")) <= end.isoformat()
+            ]
+            deleted_records = len(deliveries) - len(remaining)
+            data["deliveries"] = remaining
+            self._write_data_unlocked(data)
+
+        file_summary = cleanup_history_files(self.photo_root, self.archive_root, start, end)
+        return {"deleted_records": deleted_records, **file_summary}
+
     def filter_options(
         self,
         start_date: str | None = None,
@@ -615,6 +633,56 @@ def normalize_delivery_date(value: str) -> str:
     if re.fullmatch(r"\d{8}", text):
         return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
     return text
+
+
+def parse_cleanup_date_range(start_date: str, end_date: str) -> tuple[date, date]:
+    try:
+        start = datetime.strptime(str(start_date or "").strip(), "%Y-%m-%d").date()
+        end = datetime.strptime(str(end_date or "").strip(), "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError("日期格式不正確，請使用 YYYY-MM-DD") from exc
+    if start > end:
+        raise ValueError("開始日期不得晚於結束日期")
+    return start, end
+
+
+def cleanup_history_files(
+    photo_root: Path,
+    archive_root: Path,
+    start: date,
+    end: date,
+) -> dict[str, int]:
+    deleted_photo_date_folders = 0
+    for child in photo_root.iterdir():
+        if not child.is_dir() or not re.fullmatch(r"\d{8}", child.name):
+            continue
+        try:
+            folder_date = datetime.strptime(child.name, "%Y%m%d").date()
+        except ValueError:
+            continue
+        if start <= folder_date <= end:
+            shutil.rmtree(child)
+            deleted_photo_date_folders += 1
+
+    deleted_archives = 0
+    for path in archive_root.iterdir():
+        if not path.is_file() or path.suffix.lower() != ".zip":
+            continue
+        date_prefix = path.name[:8]
+        if not re.fullmatch(r"\d{8}", date_prefix):
+            continue
+        try:
+            archive_date = datetime.strptime(date_prefix, "%Y%m%d").date()
+        except ValueError:
+            continue
+        if start <= archive_date <= end:
+            path.unlink()
+            deleted_archives += 1
+
+    return {
+        "deleted_photo_date_folders": deleted_photo_date_folders,
+        "deleted_archives": deleted_archives,
+    }
 
 
 def photo_timestamp(value: str | None) -> str:
