@@ -61,6 +61,7 @@
           <button class="tab-button" data-view="upload" type="button">匯入 Excel</button>
           <button id="toggleAllPhotos" class="secondary-button" type="button">檢視所有照片</button>
           <button class="tab-button" data-view="archive" type="button">封存照片</button>
+          <button class="tab-button" data-view="maintenance" type="button">配送紀錄維護</button>
           <button class="tab-button" data-view="users" type="button">帳號管理</button>
           <button id="adminLogout" class="ghost-button admin-logout-button" type="button">登出</button>
         </nav>
@@ -148,6 +149,21 @@
           <button id="archivePhotos" class="primary-button" type="button">開始封存</button>
           <section id="archiveList" class="admin-list"></section>
           <button id="downloadArchives" class="secondary-button" type="button">下載勾選 ZIP</button>
+        </div>
+      </section>
+
+      <section id="maintenanceView" class="admin-view" hidden>
+        <div class="admin-panel">
+          <h2>配送紀錄維護</h2>
+          <label>
+            <span>開始日期</span>
+            <input id="maintenanceStartDate" type="date" />
+          </label>
+          <label>
+            <span>結束日期</span>
+            <input id="maintenanceEndDate" type="date" />
+          </label>
+          <button id="cleanupDeliveryHistory" class="danger-button" type="button">永久清除</button>
         </div>
       </section>
 

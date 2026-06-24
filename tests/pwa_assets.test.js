@@ -10,6 +10,7 @@ test("PWA app version matches service worker cache and shell assets", () => {
   const appVersion = JSON.parse(fs.readFileSync(path.join(staticRoot, "app-version.json"), "utf8"));
   const workerJs = fs.readFileSync(path.join(staticRoot, "service-worker.js"), "utf8");
 
+  assert.equal(appVersion.version, "2026.06.24.1");
   assert.match(appVersion.version, /^20\d{2}\.\d{2}\.\d{2}\.\d+$/);
   assert.match(workerJs, new RegExp(`const APP_VERSION = "${escapeRegExp(appVersion.version)}"`));
   assert.match(workerJs, /const CACHE_NAME = `delivery-proof-pwa-\${APP_VERSION}`;/);

@@ -26,6 +26,7 @@ const adminEls = {
     deleted: document.querySelector("#deletedView"),
     upload: document.querySelector("#uploadView"),
     archive: document.querySelector("#archiveView"),
+    maintenance: document.querySelector("#maintenanceView"),
     users: document.querySelector("#usersView"),
   },
   filterStartDate: document.querySelector("#filterStartDate"),
@@ -51,6 +52,9 @@ const adminEls = {
   archivePhotos: document.querySelector("#archivePhotos"),
   archiveList: document.querySelector("#archiveList"),
   downloadArchives: document.querySelector("#downloadArchives"),
+  maintenanceStartDate: document.querySelector("#maintenanceStartDate"),
+  maintenanceEndDate: document.querySelector("#maintenanceEndDate"),
+  cleanupDeliveryHistory: document.querySelector("#cleanupDeliveryHistory"),
   userUsername: document.querySelector("#userUsername"),
   userRole: document.querySelector("#userRole"),
   userPassword: document.querySelector("#userPassword"),
@@ -105,6 +109,7 @@ adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.
 adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
 adminEls.downloadArchives.addEventListener("click", downloadSelectedArchives);
+adminEls.cleanupDeliveryHistory.addEventListener("click", cleanupDeliveryHistory);
 adminEls.saveUser.addEventListener("click", saveUser);
 adminEls.photoRotateLeft.addEventListener("click", () => rotateAdminPhoto(-90, adminEls.photoRotateLeft));
 adminEls.photoRotateRight.addEventListener("click", () => rotateAdminPhoto(90, adminEls.photoRotateRight));
@@ -139,6 +144,8 @@ async function initAdmin() {
     adminEls.deletedFilterStartDate.value = today;
     adminEls.deletedFilterEndDate.value = today;
     adminEls.archiveDate.value = today;
+    adminEls.maintenanceStartDate.value = today;
+    adminEls.maintenanceEndDate.value = today;
     updateToggleAllPhotosButton();
     await loadOptions();
     await loadDeliveries(false);
@@ -433,6 +440,49 @@ async function archivePhotos() {
       adminState.archives = result.archives;
       renderArchives();
       setAdminMessage(result.archives.length ? "封存完成" : "該日期沒有可封存照片");
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
+  });
+}
+
+async function cleanupDeliveryHistory() {
+  const startDate = adminEls.maintenanceStartDate.value;
+  const endDate = adminEls.maintenanceEndDate.value;
+  if (!startDate || !endDate) {
+    setAdminMessage("請選擇開始日期與結束日期", true);
+    return;
+  }
+  if (startDate > endDate) {
+    setAdminMessage("開始日期不得晚於結束日期", true);
+    return;
+  }
+  if (!confirm(`確定永久清除 ${startDate} 至 ${endDate} 的以下內容嗎？
+- 全部配送紀錄
+- 已達交照片
+- 封存 ZIP
+
+此清除無法恢復，請務必確定後執行。`)) {
+    return;
+  }
+
+  await AdminOperationState.runWithButtonLock(adminEls.cleanupDeliveryHistory, "清除中...", async () => {
+    setAdminMessage("清除中...");
+    try {
+      const result = await adminApi("/api/admin/maintenance/cleanup", {
+        method: "POST",
+        body: {
+          token: adminState.token,
+          start_date: startDate,
+          end_date: endDate,
+        },
+      });
+      await loadOptions();
+      await Promise.all([loadDeliveries(false), loadDeliveries(true)]);
+      const summary = result.summary;
+      setAdminMessage(
+        `已清除配送紀錄 ${summary.deleted_records} 筆、照片日期資料夾 ${summary.deleted_photo_date_folders} 個、封存 ZIP ${summary.deleted_archives} 個`,
+      );
     } catch (error) {
       setAdminMessage(error.message, true);
     }
