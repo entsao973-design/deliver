@@ -640,9 +640,16 @@ def normalize_delivery_date(value: str) -> str:
 
 
 def parse_cleanup_date_range(start_date: str, end_date: str) -> tuple[date, date]:
+    start_text = str(start_date or "").strip()
+    end_text = str(end_date or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", start_text) or not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}",
+        end_text,
+    ):
+        raise ValueError("日期格式不正確，請使用 YYYY-MM-DD")
     try:
-        start = datetime.strptime(str(start_date or "").strip(), "%Y-%m-%d").date()
-        end = datetime.strptime(str(end_date or "").strip(), "%Y-%m-%d").date()
+        start = datetime.strptime(start_text, "%Y-%m-%d").date()
+        end = datetime.strptime(end_text, "%Y-%m-%d").date()
     except ValueError as exc:
         raise ValueError("日期格式不正確，請使用 YYYY-MM-DD") from exc
     if start > end:
@@ -685,6 +692,8 @@ def _cleanup_history_files(
     deleted_archives = 0
     for path in archive_root.iterdir():
         if not path.is_file() or path.suffix.lower() != ".zip":
+            continue
+        if not re.match(r"^\d{8}_", path.name):
             continue
         date_prefix = path.name[:8]
         if not re.fullmatch(r"\d{8}", date_prefix):

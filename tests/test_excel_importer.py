@@ -480,6 +480,7 @@ class ImporterRulesTest(unittest.TestCase):
                 "20260610_Open.zip",
                 "20260612_Deleted.ZIP",
                 "20260613_After.zip",
+                "20260610NoUnderscore.zip",
                 "20261340_Invalid.zip",
                 "unmatched.zip",
             ):
@@ -510,6 +511,7 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertTrue((photo_root / "notes").exists())
             self.assertTrue((archive_root / "20260609_Before.zip").exists())
             self.assertTrue((archive_root / "20260613_After.zip").exists())
+            self.assertTrue((archive_root / "20260610NoUnderscore.zip").exists())
             self.assertTrue((archive_root / "20261340_Invalid.zip").exists())
             self.assertTrue((archive_root / "unmatched.zip").exists())
 
@@ -534,6 +536,8 @@ class ImporterRulesTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "日期格式"):
                 repo.cleanup_delivery_history("2026-02-30", "2026-03-01")
+            with self.assertRaisesRegex(ValueError, "日期格式"):
+                repo.cleanup_delivery_history("2026-6-01", "2026-06-02")
             with self.assertRaisesRegex(ValueError, "開始日期"):
                 repo.cleanup_delivery_history("2026-03-02", "2026-03-01")
 
