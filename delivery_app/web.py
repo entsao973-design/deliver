@@ -125,6 +125,8 @@ class DeliveryServer:
                     self._handle_admin_options(parsed)
                 elif parsed.path == "/api/admin/users":
                     self._handle_admin_users(parsed)
+                elif parsed.path == "/api/admin/archives":
+                    self._handle_admin_archives(parsed)
                 elif parsed.path.startswith("/api/admin/archives/"):
                     filename = unquote(parsed.path.removeprefix("/api/admin/archives/"))
                     self._handle_admin_archive_download(parsed, filename)
@@ -478,6 +480,17 @@ class DeliveryServer:
                     return
                 try:
                     archives = app.repo.archive_photos(str(body.get("delivery_date", "")))
+                except ValueError as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                self._send_json({"archives": archives})
+
+            def _handle_admin_archives(self, parsed) -> None:
+                if not self._admin_from_request(parsed):
+                    return
+                query = parse_qs(parsed.query)
+                try:
+                    archives = app.repo.list_archives(query.get("delivery_date", [""])[0])
                 except ValueError as exc:
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
                     return

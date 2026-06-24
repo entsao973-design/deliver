@@ -42,6 +42,41 @@ def running_server():
             thread.join(timeout=2)
 
 
+@contextmanager
+def running_server_with_archives():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        archive_root = root / "archives"
+        archive_root.mkdir()
+        (archive_root / "20260611_Alpha.zip").write_bytes(b"alpha")
+        (archive_root / "20260612_Other.zip").write_bytes(b"other")
+        app = DeliveryServer(
+            {
+                "storage_backend": "json",
+                "excel_path": None,
+                "data_file": str(root / "deliveries.json"),
+                "photo_root": str(root / "photos"),
+                "archive_root": str(archive_root),
+                "upload_dir": str(root / "uploads"),
+                "users": [],
+            }
+        )
+        app.sessions["admin-token"] = {
+            "username": "admin",
+            "role": "admin",
+            "vehicle_no": None,
+        }
+        server = ThreadingHTTPServer(("127.0.0.1", 0), app.handler_class())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield server.server_address
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+
 def request_json(address, method, path, body=None, headers=None):
     connection = http.client.HTTPConnection(address[0], address[1], timeout=5)
     try:
@@ -124,6 +159,30 @@ class WebErrorHandlingTest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("application/json", content_type)
         self.assertIn("Excel 檔名不可空白", content)
+
+    def test_admin_can_list_existing_archives_for_selected_date(self):
+        with running_server_with_archives() as address:
+            status, content_type, content = request_json(
+                address,
+                "GET",
+                "/api/admin/archives?token=admin-token&delivery_date=2026-06-11",
+            )
+
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", content_type)
+        self.assertEqual(
+            json.loads(content),
+            {
+                "archives": [
+                    {
+                        "name": "20260611_Alpha.zip",
+                        "company": "Alpha",
+                        "date_folder": "20260611",
+                        "size": 5,
+                    }
+                ]
+            },
+        )
 
     def test_oversized_import_returns_json_error_and_server_survives(self):
         with running_server() as address:

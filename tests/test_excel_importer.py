@@ -440,6 +440,42 @@ class ImporterRulesTest(unittest.TestCase):
             with zipfile.ZipFile(archive_path) as zip_file:
                 self.assertIn(f"{delivery['invoice_no']}.JPG", zip_file.namelist())
 
+    def test_list_archives_returns_existing_zips_for_selected_date(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            archive_root = root / "archives"
+            archive_root.mkdir()
+            (archive_root / "20260611_Alpha.zip").write_bytes(b"alpha")
+            (archive_root / "20260611_Beta.ZIP").write_bytes(b"beta")
+            (archive_root / "20260612_Other.zip").write_bytes(b"other")
+            (archive_root / "20260611_notes.txt").write_text("ignore", encoding="utf-8")
+            repo = DeliveryRepository(
+                None,
+                str(root / "deliveries.json"),
+                str(root / "photos"),
+                str(archive_root),
+            )
+
+            archives = repo.list_archives("2026-06-11")
+
+            self.assertEqual(
+                archives,
+                [
+                    {
+                        "name": "20260611_Alpha.zip",
+                        "company": "Alpha",
+                        "date_folder": "20260611",
+                        "size": 5,
+                    },
+                    {
+                        "name": "20260611_Beta.ZIP",
+                        "company": "Beta",
+                        "date_folder": "20260611",
+                        "size": 4,
+                    },
+                ],
+            )
+
     def test_cleanup_delivery_history_removes_all_records_and_files_in_inclusive_range(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

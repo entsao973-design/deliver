@@ -322,6 +322,9 @@ class DeliveryRepository:
 
         return archives
 
+    def list_archives(self, delivery_date: str) -> list[dict[str, Any]]:
+        return list_archive_files(self.archive_root, delivery_date)
+
     def archive_path_for(self, filename: str) -> Path | None:
         safe_name = safe_path_part(filename)
         if not safe_name.lower().endswith(".zip"):
@@ -730,6 +733,22 @@ def date_to_folder(value: str) -> str:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
         return normalized.replace("-", "")
     raise ValueError("日期格式不正確")
+
+
+def list_archive_files(archive_root: Path, delivery_date: str) -> list[dict[str, Any]]:
+    date_folder = date_to_folder(delivery_date)
+    prefix = f"{date_folder}_"
+    archives = []
+    for path in sorted(archive_root.iterdir()):
+        if not path.is_file() or path.suffix.lower() != ".zip" or not path.name.startswith(prefix):
+            continue
+        archives.append({
+            "name": path.name,
+            "company": path.stem[len(prefix):],
+            "date_folder": date_folder,
+            "size": path.stat().st_size,
+        })
+    return archives
 
 
 def list_photo_files(folder: Path) -> list[Path]:

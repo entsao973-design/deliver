@@ -328,6 +328,20 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "永久刪除中\.\.\.",/);
 });
 
+test("archive date change loads existing archives and keeps only the latest response", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /archiveRequestId:\s*0/);
+  assert.match(adminJs, /adminEls\.archiveDate\.addEventListener\("change", loadArchives\);/);
+  assert.match(adminJs, /async function loadArchives\(\)/);
+  assert.match(adminJs, /const requestId = \+\+adminState\.archiveRequestId;/);
+  assert.match(adminJs, /adminApi\(`\/api\/admin\/archives\?token=\$\{encodeURIComponent\(adminState\.token\)\}&delivery_date=\$\{encodeURIComponent\(deliveryDate\)\}`\)/);
+  assert.match(adminJs, /if \(requestId !== adminState\.archiveRequestId\) \{\s*return;\s*\}/);
+  assert.match(adminJs, /adminState\.archives = result\.archives;/);
+  assert.match(adminJs, /<input type="checkbox" checked \/>/);
+  assert.match(adminJs, /此日期尚無封存檔案/);
+});
+
 test("admin delivery record maintenance requires confirmation before permanent cleanup", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");

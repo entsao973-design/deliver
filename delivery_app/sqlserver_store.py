@@ -36,6 +36,7 @@ from .repository import (
     cleanup_history_files,
     date_to_folder,
     decode_image_data_url,
+    list_archive_files,
     list_photo_files,
     normalize_delivery_date,
     parse_cleanup_date_range,
@@ -748,6 +749,9 @@ WHERE {deleted_clause}
             })
 
         return archives
+
+    def list_archives(self, delivery_date: str) -> list[dict[str, Any]]:
+        return list_archive_files(self.archive_root, delivery_date)
 
     def archive_path_for(self, filename: str) -> Path | None:
         safe_name = safe_path_part(filename)

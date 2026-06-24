@@ -4,6 +4,7 @@ const adminState = {
   options: { dates: [], companies: [], drivers: [] },
   uploadFiles: [],
   archives: [],
+  archiveRequestId: 0,
   showAllPhotos: false,
   photoDelivery: null,
 };
@@ -108,6 +109,7 @@ adminEls.toggleAllPhotos.addEventListener("click", () => {
 adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.excelFile.files]));
 adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
+adminEls.archiveDate.addEventListener("change", loadArchives);
 adminEls.downloadArchives.addEventListener("click", downloadSelectedArchives);
 adminEls.cleanupDeliveryHistory.addEventListener("click", cleanupDeliveryHistory);
 adminEls.saveUser.addEventListener("click", saveUser);
@@ -209,7 +211,7 @@ function setView(view) {
     loadUsers();
   }
   if (view === "archive") {
-    renderArchives();
+    loadArchives();
   }
 }
 
@@ -427,6 +429,8 @@ async function archivePhotos() {
     return;
   }
 
+  const deliveryDate = adminEls.archiveDate.value;
+  const requestId = ++adminState.archiveRequestId;
   await AdminOperationState.runWithButtonLock(adminEls.archivePhotos, "封存中...", async () => {
     setAdminMessage("封存中...");
     try {
@@ -434,9 +438,12 @@ async function archivePhotos() {
         method: "POST",
         body: {
           token: adminState.token,
-          delivery_date: adminEls.archiveDate.value,
+          delivery_date: deliveryDate,
         },
       });
+      if (requestId !== adminState.archiveRequestId) {
+        return;
+      }
       adminState.archives = result.archives;
       renderArchives();
       setAdminMessage(result.archives.length ? "封存完成" : "該日期沒有可封存照片");
@@ -444,6 +451,32 @@ async function archivePhotos() {
       setAdminMessage(error.message, true);
     }
   });
+}
+
+async function loadArchives() {
+  const deliveryDate = adminEls.archiveDate.value;
+  const requestId = ++adminState.archiveRequestId;
+  if (!deliveryDate) {
+    adminState.archives = [];
+    renderArchives();
+    return;
+  }
+
+  try {
+    const result = await adminApi(`/api/admin/archives?token=${encodeURIComponent(adminState.token)}&delivery_date=${encodeURIComponent(deliveryDate)}`);
+    if (requestId !== adminState.archiveRequestId) {
+      return;
+    }
+    adminState.archives = result.archives;
+    renderArchives();
+  } catch (error) {
+    if (requestId !== adminState.archiveRequestId) {
+      return;
+    }
+    adminState.archives = [];
+    renderArchives();
+    setAdminMessage(error.message, true);
+  }
 }
 
 async function cleanupDeliveryHistory() {
@@ -494,7 +527,7 @@ function renderArchives() {
   if (adminState.archives.length === 0) {
     const empty = document.createElement("div");
     empty.className = "admin-card archive-row";
-    empty.textContent = "尚無封存檔";
+    empty.textContent = "此日期尚無封存檔案";
     adminEls.archiveList.append(empty);
     return;
   }
