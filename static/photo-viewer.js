@@ -27,6 +27,8 @@ function createPhotoViewer(config) {
   let handlingTouchPinch = false;
   const pointers = new Map();
 
+  image.draggable = false;
+
   function measureFit() {
     if (!image.naturalWidth || !image.naturalHeight || !viewport.clientWidth || !viewport.clientHeight) {
       return;

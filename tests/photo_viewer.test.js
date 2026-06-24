@@ -129,6 +129,20 @@ test("photo viewer schedules another reset after image decode", async () => {
   assert.equal(rafCallbacks.length, 2);
 });
 
+test("photo viewer disables native image dragging so zoomed photos can pan", () => {
+  const { createPhotoViewer } = loadPhotoViewer();
+  const viewport = makeElement({ clientWidth: 300, clientHeight: 200 });
+  const image = makeElement({
+    draggable: true,
+    naturalWidth: 1200,
+    naturalHeight: 800,
+  });
+
+  createPhotoViewer({ viewport, image, useWindowResize: false });
+
+  assert.equal(image.draggable, false);
+});
+
 test("photo viewer does not capture unzoomed single-touch drags", () => {
   const { createPhotoViewer } = loadPhotoViewer();
   let captureCount = 0;
