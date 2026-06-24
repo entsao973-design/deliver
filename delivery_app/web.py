@@ -162,6 +162,8 @@ class DeliveryServer:
                     self._handle_admin_user_delete()
                 elif parsed.path == "/api/admin/archive":
                     self._handle_admin_archive()
+                elif parsed.path == "/api/admin/maintenance/cleanup":
+                    self._handle_admin_maintenance_cleanup()
                 elif parsed.path.startswith("/api/admin/deliveries/") and parsed.path.endswith("/photo"):
                     delivery_id = parsed.path.split("/")[4]
                     self._handle_admin_photo_save(delivery_id)
@@ -480,6 +482,16 @@ class DeliveryServer:
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
                     return
                 self._send_json({"archives": archives})
+
+            def _handle_admin_maintenance_cleanup(self) -> None:
+                body = self._read_json()
+                if not self._admin_from_body(body):
+                    return
+                summary = app.repo.cleanup_delivery_history(
+                    str(body.get("start_date", "")),
+                    str(body.get("end_date", "")),
+                )
+                self._send_json({"ok": True, "summary": summary})
 
             def _handle_admin_archive_download(self, parsed, filename: str) -> None:
                 if not self._admin_from_request(parsed):
