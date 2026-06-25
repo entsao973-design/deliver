@@ -179,6 +179,10 @@
   color: #000000;
 }
 
+.admin-card.delivery-row.has-inline-photo {
+  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr) minmax(88px, 1fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(140px, 2fr);
+}
+
 .admin-card.delivery-row .admin-customer {
   min-width: 0;
   overflow: hidden;
@@ -237,6 +241,10 @@
 }
 
 .admin-inline-photo-toolbar {
+  display: none;
+}
+
+.admin-card.delivery-row.has-inline-photo .admin-inline-photo-toolbar {
   display: flex;
   justify-content: center;
   align-items: center;

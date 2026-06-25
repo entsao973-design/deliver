@@ -307,11 +307,13 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
   }
 
   for (const delivery of deliveries) {
+    const showInlinePhoto = AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos);
     const card = document.createElement("article");
-    card.className = `${deleted ? "admin-card delivery-row deleted-card" : "admin-card delivery-row"}${hideDeliveryDate ? " hide-date" : ""}`;
+    card.className = `${deleted ? "admin-card delivery-row deleted-card" : "admin-card delivery-row"}${hideDeliveryDate ? " hide-date" : ""}${showInlinePhoto ? " has-inline-photo" : ""}`;
     card.innerHTML = `
       <strong class="admin-customer"></strong>
       <span class="admin-row-cell admin-document"></span>
+      <div class="admin-inline-photo-toolbar"></div>
       <span class="admin-row-cell admin-route"></span>
       <span class="admin-row-cell admin-status"></span>
       <div class="admin-actions admin-row-actions"></div>
@@ -330,7 +332,7 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
 
     const rowActions = card.querySelector(".admin-row-actions");
     if (delivery.has_photo) {
-      if (!AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
+      if (!showInlinePhoto) {
         rowActions.append(makeAdminButton("檢視照片", "secondary-button", () => openAdminPhoto(delivery)));
       }
     }
@@ -340,14 +342,15 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
     } else {
       rowActions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
     }
-    if (AdminPhotoView.shouldRenderInlinePhoto(delivery, deleted, adminState.showAllPhotos)) {
-      card.append(createAdminInlinePhoto(delivery));
+    if (showInlinePhoto) {
+      const inlinePhotoToolbar = card.querySelector(".admin-inline-photo-toolbar");
+      card.append(createAdminInlinePhoto(delivery, inlinePhotoToolbar));
     }
     container.append(card);
   }
 }
 
-function createAdminInlinePhoto(delivery) {
+function createAdminInlinePhoto(delivery, toolbar) {
   const wrapper = document.createElement("div");
   wrapper.className = "admin-inline-photo-frame";
 
@@ -356,8 +359,6 @@ function createAdminInlinePhoto(delivery) {
   photo.alt = `${delivery.invoice_no} 達交照片`;
   setAdminPhotoSource(photo, delivery);
 
-  const toolbar = document.createElement("div");
-  toolbar.className = "admin-inline-photo-toolbar";
   const rotateError = document.createElement("span");
   rotateError.className = "photo-rotate-error";
   rotateError.setAttribute("aria-live", "polite");
@@ -377,7 +378,7 @@ function createAdminInlinePhoto(delivery) {
     touchScrollTarget: () => viewport.closest(".admin-list"),
   });
 
-  wrapper.append(toolbar, viewport);
+  wrapper.append(viewport);
   return wrapper;
 }
 
