@@ -599,6 +599,18 @@ select:focus {
   font-weight: 800;
 }
 
+.delivery-screen .invoice {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.delivery-screen .company {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

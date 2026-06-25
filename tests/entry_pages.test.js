@@ -74,6 +74,13 @@ test("driver and admin lists keep cards at content height when few records remai
   assert.match(adminCss, /\.admin-card\s*\{[\s\S]*padding:\s*4px 14px;/);
 });
 
+test("driver delivery card emphasizes invoice and company text", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
+
+  assert.match(css, /\.delivery-screen \.invoice\s*\{[\s\S]*color:\s*#000000;[\s\S]*font-size:\s*16px;[\s\S]*font-weight:\s*800;/);
+  assert.match(css, /\.delivery-screen \.company\s*\{[\s\S]*color:\s*#000000;[\s\S]*font-size:\s*16px;[\s\S]*font-weight:\s*600;/);
+});
+
 test("driver scan invoice button replaces refresh in summary and refresh moves to header", () => {
   const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
