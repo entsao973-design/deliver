@@ -41,8 +41,14 @@
 }
 
 .admin-tabs button {
-  min-height: 34px;
-  padding: 0 10px;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .tab-button {
@@ -56,8 +62,9 @@
 }
 
 .admin-logout-button {
-  min-height: 34px;
-  padding: 0 10px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 6px;
 }
 
 .admin-view {
@@ -73,7 +80,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(90px, 0.7fr) minmax(220px, 1.2fr);
   gap: 8px;
-  padding: 8px 10px;
+  padding: 5px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -86,13 +93,15 @@
 
 .filter-grid input,
 .filter-grid select {
-  min-height: 34px;
+  height: 30px;
+  min-height: 30px;
   padding: 0 10px;
 }
 
 .filter-grid button {
   align-self: end;
-  min-height: 34px;
+  height: 30px;
+  min-height: 30px;
   padding: 0 10px;
 }
 
@@ -102,7 +111,8 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 34px;
+  height: 30px;
+  min-height: 30px;
   color: #000000;
   font-size: 14px;
   font-weight: 700;
