@@ -366,6 +366,14 @@ select:focus {
   display: contents;
 }
 
+.delivery-screen #refreshButton {
+  grid-column: 3;
+}
+
+.delivery-screen #logoutButton {
+  grid-column: 4;
+}
+
 .top-actions button {
   align-self: stretch;
   width: 100%;

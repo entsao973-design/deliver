@@ -51,6 +51,8 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(css, /\.delivery-screen \.top-bar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);[\s\S]*gap:\s*6px;[\s\S]*padding:\s*4px 8px;/);
   assert.match(css, /\.delivery-screen button\s*\{[\s\S]*min-height:\s*32px;[\s\S]*white-space:\s*nowrap;[\s\S]*word-break:\s*keep-all;/);
   assert.match(css, /\.top-actions\s*\{[\s\S]*display:\s*contents;/);
+  assert.match(css, /\.delivery-screen #refreshButton\s*\{[\s\S]*grid-column:\s*3;/);
+  assert.match(css, /\.delivery-screen #logoutButton\s*\{[\s\S]*grid-column:\s*4;/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.delivery-screen \.top-bar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
   assert.match(css, /#refreshButton,\s*#logoutButton,\s*#smartPhotoButton,\s*#scanInvoiceButton\s*\{[\s\S]*align-self:\s*center;[\s\S]*height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);[\s\S]*min-height:\s*calc\(var\(--driver-control-panel-height\) \* 0\.8\);/);
   assert.match(css, /\.delivery-screen select\s*\{[\s\S]*min-height:\s*32px;/);
