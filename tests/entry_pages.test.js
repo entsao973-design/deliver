@@ -6,6 +6,15 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const staticRoot = path.join(root, "static");
 
+function cssBlockAfter(css, selectorStart) {
+  const selectorIndex = css.indexOf(selectorStart);
+  assert.notEqual(selectorIndex, -1, `Missing CSS selector: ${selectorStart}`);
+  const blockStart = css.indexOf("{", selectorIndex);
+  const blockEnd = css.indexOf("}", blockStart);
+  assert.ok(blockStart > selectorIndex && blockEnd > blockStart, `Missing CSS block: ${selectorStart}`);
+  return css.slice(blockStart + 1, blockEnd);
+}
+
 test("driver entry uses driver route and split vehicle fields", () => {
   const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
   const manifest = JSON.parse(fs.readFileSync(path.join(staticRoot, "manifest.json"), "utf8"));
@@ -51,6 +60,12 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(css, /\.delivery-screen \.top-bar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);[\s\S]*gap:\s*6px;[\s\S]*padding:\s*4px 8px;/);
   assert.match(css, /\.delivery-screen button\s*\{[\s\S]*min-height:\s*32px;[\s\S]*white-space:\s*nowrap;[\s\S]*word-break:\s*keep-all;/);
   assert.match(css, /\.top-actions\s*\{[\s\S]*display:\s*contents;/);
+  const driverMetaBlock = cssBlockAfter(css, ".delivery-screen .eyebrow,");
+  assert.match(driverMetaBlock, /color:\s*#000000;/);
+  assert.match(driverMetaBlock, /font-size:\s*11px;/);
+  const datePanelLabelBlock = cssBlockAfter(css, ".delivery-screen .date-panel span");
+  assert.match(datePanelLabelBlock, /color:\s*#000000;/);
+  assert.match(datePanelLabelBlock, /font-size:\s*11px;/);
   assert.match(css, /\.delivery-screen #refreshButton\s*\{[\s\S]*grid-column:\s*3;/);
   assert.match(css, /\.delivery-screen #logoutButton\s*\{[\s\S]*grid-column:\s*4;/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.delivery-screen \.top-bar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
@@ -60,6 +75,9 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(css, /\.summary-actions\s*\{[\s\S]*display:\s*contents;/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.delivery-screen \.summary-strip\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(0,\s*2fr\) minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
   assert.match(css, /\.summary-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*white-space:\s*nowrap;/);
+  const summaryLabelBlock = cssBlockAfter(css, ".delivery-screen .summary-strip span");
+  assert.match(summaryLabelBlock, /color:\s*#000000;/);
+  assert.match(summaryLabelBlock, /font-size:\s*11px;/);
   assert.match(css, /\.delivery-screen \.summary-strip \.toggle-row input\s*\{[\s\S]*width:\s*18px;[\s\S]*min-height:\s*18px;/);
   assert.match(css, /\.delivery-screen \.message,[\s\S]*\.delivery-screen \.queue-status\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*line-height:\s*1\.35;[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*anywhere;[\s\S]*word-break:\s*break-word;/);
   assert.match(css, /\.delivery-screen \.delivery-list\s*\{[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);

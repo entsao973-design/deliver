@@ -288,6 +288,7 @@ select:focus {
 .delivery-screen .eyebrow,
 .delivery-screen .subtle {
   margin-top: 1px;
+  color: #000000;
   font-size: 11px;
 }
 
@@ -359,7 +360,8 @@ select:focus {
 }
 
 .delivery-screen .date-panel span {
-  font-size: 10px;
+  color: #000000;
+  font-size: 11px;
 }
 
 .top-actions {
@@ -399,6 +401,7 @@ select:focus {
 }
 
 .delivery-screen .summary-strip span {
+  color: #000000;
   font-size: 11px;
 }
 
