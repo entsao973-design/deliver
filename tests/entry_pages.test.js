@@ -365,9 +365,10 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.doesNotMatch(html, /管理環境/);
   assert.doesNotMatch(html, /<header class="admin-header">/);
   assert.doesNotMatch(html, /<main id="adminApp" class="admin-shell" hidden>[\s\S]*<h1>[\s\S]*<\/h1>[\s\S]*<\/main>/);
+  assert.doesNotMatch(html, /配送紀錄維護/);
   assert.match(html, /<nav class="admin-tabs"[^>]*>[\s\S]*<button id="adminLogout" class="ghost-button admin-logout-button" type="button">[\s\S]*<\/button>\s*<\/nav>/);
   assert.match(css, /\.admin-sticky\s*\{[\s\S]*padding-bottom:\s*4px;/);
-  assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(8,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
+  assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(7,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
   assert.match(css, /\.admin-tabs button\s*\{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;[\s\S]*white-space:\s*nowrap;/);
   assert.match(css, /\.admin-logout-button\s*\{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/);
   assert.match(css, /\.admin-view\s*\{[\s\S]*gap:\s*4px;/);
@@ -400,25 +401,14 @@ test("archive date change loads existing archives and keeps only the latest resp
   assert.match(adminJs, /此日期尚無封存檔案/);
 });
 
-test("admin delivery record maintenance requires confirmation before permanent cleanup", () => {
+test("admin delivery record maintenance UI is removed from the admin platform", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
-  assert.match(html, /data-view="archive"[^>]*>封存照片<\/button>\s*<button class="tab-button" data-view="maintenance"[^>]*>配送紀錄維護<\/button>/);
-  assert.match(html, /id="maintenanceView"[\s\S]*id="maintenanceStartDate"[^>]*type="date"[\s\S]*id="maintenanceEndDate"[^>]*type="date"[\s\S]*id="cleanupDeliveryHistory" class="danger-button"[^>]*>永久清除<\/button>/);
-  assert.match(css, /#maintenanceView/);
-  assert.match(adminJs, /maintenance:\s*document\.querySelector\("#maintenanceView"\)/);
-  assert.match(adminJs, /maintenanceStartDate:\s*document\.querySelector\("#maintenanceStartDate"\)/);
-  assert.match(adminJs, /maintenanceEndDate:\s*document\.querySelector\("#maintenanceEndDate"\)/);
-  assert.match(adminJs, /cleanupDeliveryHistory:\s*document\.querySelector\("#cleanupDeliveryHistory"\)/);
-  assert.match(adminJs, /adminEls\.cleanupDeliveryHistory\.addEventListener\("click", cleanupDeliveryHistory\);/);
-  assert.match(adminJs, /if \(!startDate \|\| !endDate\) \{[\s\S]*請選擇開始日期與結束日期[\s\S]*return;/);
-  assert.match(adminJs, /if \(startDate > endDate\) \{[\s\S]*開始日期不得晚於結束日期[\s\S]*return;/);
-  assert.match(adminJs, /if \(!confirm\(`[\s\S]*全部配送紀錄[\s\S]*已達交照片[\s\S]*封存 ZIP[\s\S]*此清除無法恢復，請務必確定後執行[\s\S]*`\)\) \{\s*return;\s*\}/);
-  assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(adminEls\.cleanupDeliveryHistory, "清除中\.\.\.",/);
-  assert.match(adminJs, /adminApi\("\/api\/admin\/maintenance\/cleanup",[\s\S]*start_date: startDate,[\s\S]*end_date: endDate,/);
-  assert.match(adminJs, /已清除配送紀錄 \$\{summary\.deleted_records\} 筆、照片日期資料夾 \$\{summary\.deleted_photo_date_folders\} 個、封存 ZIP \$\{summary\.deleted_archives\} 個/);
+  assert.doesNotMatch(html, /data-view="maintenance"|maintenanceView|maintenanceStartDate|maintenanceEndDate|cleanupDeliveryHistory|配送紀錄維護/);
+  assert.doesNotMatch(css, /#maintenanceView/);
+  assert.doesNotMatch(adminJs, /maintenance:\s*document\.querySelector|maintenanceStartDate|maintenanceEndDate|cleanupDeliveryHistory|\/api\/admin\/maintenance\/cleanup/);
 });
 
 test("admin filter row shows query before filtered delivery counts", () => {
