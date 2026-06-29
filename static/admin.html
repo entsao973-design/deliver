@@ -57,7 +57,7 @@
       <div class="admin-sticky">
         <nav class="admin-tabs" aria-label="管理選單">
           <button class="tab-button active" data-view="deliveries" type="button">配送狀態</button>
-          <button class="tab-button" data-view="deleted" type="button">已達交刪除區</button>
+          <button class="tab-button" data-view="deleted" type="button">刪除區</button>
           <button class="tab-button" data-view="upload" type="button">匯入 Excel</button>
           <button id="toggleAllPhotos" class="secondary-button" type="button">檢視所有照片</button>
           <button class="tab-button" data-view="archive" type="button">封存照片</button>
@@ -93,6 +93,7 @@
             <span>未達交: 0</span>
             <span>共: 0</span>
           </div>
+          <button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除</button>
         </div>
         <section id="adminDeliveryList" class="admin-list"></section>
       </section>
@@ -121,6 +122,7 @@
             <span>未達交: 0</span>
             <span>共: 0</span>
           </div>
+          <button id="bulkPermanentDeleteFiltered" class="danger-button" type="button">永久刪除</button>
         </div>
         <section id="deletedDeliveryList" class="admin-list deleted-list"></section>
       </section>

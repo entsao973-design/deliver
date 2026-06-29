@@ -166,6 +166,10 @@ class DeliveryServer:
                     self._handle_admin_archive()
                 elif parsed.path == "/api/admin/maintenance/cleanup":
                     self._handle_admin_maintenance_cleanup()
+                elif parsed.path == "/api/admin/deliveries/bulk-delete":
+                    self._handle_admin_bulk_delete()
+                elif parsed.path == "/api/admin/deliveries/bulk-permanent-delete":
+                    self._handle_admin_bulk_permanent_delete()
                 elif parsed.path.startswith("/api/admin/deliveries/") and parsed.path.endswith("/photo"):
                     delivery_id = parsed.path.split("/")[4]
                     self._handle_admin_photo_save(delivery_id)
@@ -446,6 +450,18 @@ class DeliveryServer:
                     return
                 self._send_json(result)
 
+            def _handle_admin_bulk_delete(self) -> None:
+                body = self._read_json()
+                session = self._admin_from_body(body)
+                if not session:
+                    return
+                delivery_ids = body.get("delivery_ids", [])
+                if not isinstance(delivery_ids, list):
+                    self._json_error(HTTPStatus.BAD_REQUEST, "刪除清單格式不正確")
+                    return
+                summary = app.repo.delete_deliveries(delivery_ids, session["username"])
+                self._send_json({"summary": summary})
+
             def _handle_admin_restore(self, delivery_id: str) -> None:
                 body = self._read_json()
                 if not self._admin_from_body(body):
@@ -473,6 +489,21 @@ class DeliveryServer:
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
                     return
                 self._send_json({"ok": True})
+
+            def _handle_admin_bulk_permanent_delete(self) -> None:
+                body = self._read_json()
+                if not self._admin_from_body(body):
+                    return
+                delivery_ids = body.get("delivery_ids", [])
+                if not isinstance(delivery_ids, list):
+                    self._json_error(HTTPStatus.BAD_REQUEST, "刪除清單格式不正確")
+                    return
+                try:
+                    summary = app.repo.permanently_delete_deliveries(delivery_ids)
+                except ValueError as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                self._send_json({"summary": summary})
 
             def _handle_admin_archive(self) -> None:
                 body = self._read_json()

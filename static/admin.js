@@ -2,6 +2,8 @@ const adminState = {
   token: localStorage.getItem("delivery_token") || "",
   view: "deliveries",
   options: { dates: [], companies: [], drivers: [] },
+  deliveries: [],
+  deletedDeliveries: [],
   uploadFiles: [],
   archives: [],
   archiveRequestId: 0,
@@ -42,6 +44,8 @@ const adminEls = {
   deletedDeliveryCounts: document.querySelector("#deletedDeliveryCounts"),
   applyFilters: document.querySelector("#applyFilters"),
   applyDeletedFilters: document.querySelector("#applyDeletedFilters"),
+  bulkDeleteFiltered: document.querySelector("#bulkDeleteFiltered"),
+  bulkPermanentDeleteFiltered: document.querySelector("#bulkPermanentDeleteFiltered"),
   toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
   deliveryList: document.querySelector("#adminDeliveryList"),
   deletedList: document.querySelector("#deletedDeliveryList"),
@@ -101,6 +105,8 @@ for (const button of adminEls.tabs) {
 
 adminEls.applyFilters.addEventListener("click", () => applyAdminFilters(false));
 adminEls.applyDeletedFilters.addEventListener("click", () => applyAdminFilters(true));
+adminEls.bulkDeleteFiltered.addEventListener("click", bulkDeleteFilteredDeliveries);
+adminEls.bulkPermanentDeleteFiltered.addEventListener("click", bulkPermanentDeleteFilteredDeliveries);
 adminEls.toggleAllPhotos.addEventListener("click", () => {
   adminState.showAllPhotos = !adminState.showAllPhotos;
   updateToggleAllPhotosButton();
@@ -271,6 +277,7 @@ async function loadDeliveries(deleted) {
 
   const result = await adminApi(`/api/admin/deliveries?${params}`);
   const hideDeliveryDate = Boolean(startDateEl.value && startDateEl.value === endDateEl.value);
+  adminState[deleted ? "deletedDeliveries" : "deliveries"] = result.deliveries;
   updateDeliveryCounts(deleted ? adminEls.deletedDeliveryCounts : adminEls.deliveryCounts, result.deliveries);
   renderDeliveries(listEl, result.deliveries, deleted, hideDeliveryDate);
 }
@@ -584,11 +591,41 @@ async function deleteDelivery(delivery, button) {
       });
       await loadOptions();
       await loadDeliveries(false);
-      if (result.mode === "archived") {
-        setAdminMessage("已達交單據已移到刪除區");
-      } else {
-        setAdminMessage("未達交單據已永久刪除");
-      }
+      setAdminMessage(result.mode === "archived" ? "單據已移到刪除區" : "已刪除");
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
+  });
+}
+
+function currentDeliveryIds(deleted) {
+  return (deleted ? adminState.deletedDeliveries : adminState.deliveries)
+    .map((delivery) => delivery.id)
+    .filter(Boolean);
+}
+
+async function bulkDeleteFilteredDeliveries() {
+  const deliveryIds = currentDeliveryIds(false);
+  if (deliveryIds.length === 0) {
+    setAdminMessage("目前沒有可刪除的配送紀錄", true);
+    return;
+  }
+  if (!confirm(`確定將目前篩選出的 ${deliveryIds.length} 筆配送紀錄移到刪除區嗎？`)) {
+    return;
+  }
+
+  await AdminOperationState.runWithButtonLock(adminEls.bulkDeleteFiltered, "刪除中...", async () => {
+    try {
+      const result = await adminApi("/api/admin/deliveries/bulk-delete", {
+        method: "POST",
+        body: {
+          token: adminState.token,
+          delivery_ids: deliveryIds,
+        },
+      });
+      await loadOptions();
+      await loadDeliveries(false);
+      setAdminMessage(`已將 ${result.summary.deleted_records} 筆配送紀錄移到刪除區`);
     } catch (error) {
       setAdminMessage(error.message, true);
     }
@@ -608,6 +645,38 @@ async function restoreDelivery(delivery, button) {
       await loadOptions();
       await loadDeliveries(true);
       setAdminMessage("已還原");
+    } catch (error) {
+      setAdminMessage(error.message, true);
+    }
+  });
+}
+
+async function bulkPermanentDeleteFilteredDeliveries() {
+  const deliveryIds = currentDeliveryIds(true);
+  if (deliveryIds.length === 0) {
+    setAdminMessage("目前沒有可永久刪除的配送紀錄", true);
+    return;
+  }
+  if (!confirm(`確定永久清除目前篩選出的 ${deliveryIds.length} 筆刪除區配送紀錄嗎？
+- 篩選出的配送紀錄
+- 對應已達交照片
+
+此清除無法恢復，請務必確定後執行。`)) {
+    return;
+  }
+
+  await AdminOperationState.runWithButtonLock(adminEls.bulkPermanentDeleteFiltered, "永久刪除中...", async () => {
+    try {
+      const result = await adminApi("/api/admin/deliveries/bulk-permanent-delete", {
+        method: "POST",
+        body: {
+          token: adminState.token,
+          delivery_ids: deliveryIds,
+        },
+      });
+      await loadOptions();
+      await loadDeliveries(true);
+      setAdminMessage(`已永久刪除 ${result.summary.deleted_records} 筆配送紀錄`);
     } catch (error) {
       setAdminMessage(error.message, true);
     }

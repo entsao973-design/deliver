@@ -605,6 +605,66 @@ class ImporterRulesTest(unittest.TestCase):
             saved = json.loads(data_file.read_text(encoding="utf-8"))
             self.assertEqual(saved["deliveries"], [])
 
+    def test_delete_delivery_moves_pending_records_to_deleted_area(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_file = root / "deliveries.json"
+            records = [
+                make_delivery_record("pending", "2026-06-10", "Open", "Driver"),
+            ]
+            data_file.write_text(json.dumps({"deliveries": records}, ensure_ascii=False), encoding="utf-8")
+            repo = DeliveryRepository(None, str(data_file), str(root / "photos"), str(root / "archives"))
+
+            result = repo.delete_delivery("pending", "admin")
+
+            saved = json.loads(data_file.read_text(encoding="utf-8"))["deliveries"][0]
+            self.assertEqual(result["mode"], "archived")
+            self.assertEqual(saved["id"], "pending")
+            self.assertIsNotNone(saved["deleted_at"])
+            self.assertEqual(saved["deleted_by"], "admin")
+            self.assertEqual([item["id"] for item in repo.list_admin_deliveries(deleted=True)], ["pending"])
+
+    def test_bulk_delete_and_permanent_delete_use_selected_ids_only(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_file = root / "deliveries.json"
+            photo_root = root / "photos"
+            selected_photo = photo_root / "20260610" / "Done" / "INV-selected.JPG"
+            kept_photo = photo_root / "20260610" / "Done" / "INV-kept.JPG"
+            selected_photo.parent.mkdir(parents=True)
+            selected_photo.write_bytes(b"selected")
+            kept_photo.write_bytes(b"kept")
+            records = [
+                make_delivery_record("pending", "2026-06-10", "Open", "Driver"),
+                {**make_delivery_record("done", "2026-06-10", "Done", "Driver"), "status": "normal"},
+                {
+                    **make_delivery_record("selected", "2026-06-10", "Done", "Driver", "2026-06-11T10:00:00"),
+                    "status": "normal",
+                    "photo_path": str(selected_photo),
+                },
+                {
+                    **make_delivery_record("kept", "2026-06-10", "Done", "Driver", "2026-06-11T10:00:00"),
+                    "status": "normal",
+                    "photo_path": str(kept_photo),
+                },
+            ]
+            data_file.write_text(json.dumps({"deliveries": records}, ensure_ascii=False), encoding="utf-8")
+            repo = DeliveryRepository(None, str(data_file), str(photo_root), str(root / "archives"))
+
+            delete_summary = repo.delete_deliveries(["pending", "done"], "admin")
+            permanent_summary = repo.permanently_delete_deliveries(["selected"])
+
+            saved = json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]
+            by_id = {item["id"]: item for item in saved}
+            self.assertEqual(delete_summary, {"deleted_records": 2})
+            self.assertEqual(permanent_summary, {"deleted_records": 1})
+            self.assertEqual(set(by_id), {"pending", "done", "kept"})
+            self.assertIsNotNone(by_id["pending"]["deleted_at"])
+            self.assertIsNotNone(by_id["done"]["deleted_at"])
+            self.assertIsNotNone(by_id["kept"]["deleted_at"])
+            self.assertFalse(selected_photo.exists())
+            self.assertTrue(kept_photo.exists())
+
 
 class UserStoreTest(unittest.TestCase):
     def test_locks_after_five_failed_logins(self):

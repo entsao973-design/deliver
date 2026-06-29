@@ -38,6 +38,7 @@ from .repository import (
     decode_image_data_url,
     list_archive_files,
     list_photo_files,
+    normalize_delivery_ids,
     normalize_delivery_date,
     parse_cleanup_date_range,
     photo_timestamp,
@@ -885,28 +886,55 @@ ORDER BY delivery_date, invoice_no
                     if not record:
                         raise KeyError("Delivery not found")
 
-                    if record.get("status"):
-                        now = datetime.now().replace(microsecond=0)
-                        cursor.execute(
-                            """
+                    now = datetime.now().replace(microsecond=0)
+                    cursor.execute(
+                        """
 UPDATE dbo.deliveries
 SET deleted_at = ?,
     deleted_by = ?,
     updated_at = ?
 WHERE id = ?
 """,
-                            now,
-                            username,
-                            now,
-                            delivery_id,
-                        )
-                        connection.commit()
-                        archived = self._fetch_by_id(delivery_id)
-                        return {"mode": "archived", "delivery": public_delivery(archived)}
-
-                    cursor.execute("DELETE FROM dbo.deliveries WHERE id = ?", delivery_id)
+                        now,
+                        username,
+                        now,
+                        delivery_id,
+                    )
                     connection.commit()
-                    return {"mode": "permanent"}
+                    archived = self._fetch_by_id(delivery_id)
+                    return {"mode": "archived", "delivery": public_delivery(archived)}
+                except Exception:
+                    connection.rollback()
+                    raise
+
+    def delete_deliveries(self, delivery_ids: list[str], username: str) -> dict[str, int]:
+        target_ids = normalize_delivery_ids(delivery_ids)
+        if not target_ids:
+            return {"deleted_records": 0}
+
+        placeholders = ", ".join("?" for _ in target_ids)
+        with self._lock:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                try:
+                    now = datetime.now().replace(microsecond=0)
+                    cursor.execute(
+                        f"""
+UPDATE dbo.deliveries
+SET deleted_at = ?,
+    deleted_by = ?,
+    updated_at = ?
+WHERE deleted_at IS NULL
+  AND id IN ({placeholders})
+""",
+                        now,
+                        username,
+                        now,
+                        *target_ids,
+                    )
+                    deleted_records = max(int(cursor.rowcount or 0), 0)
+                    connection.commit()
+                    return {"deleted_records": deleted_records}
                 except Exception:
                     connection.rollback()
                     raise
@@ -926,6 +954,38 @@ WHERE id = ?
                     cursor.execute("DELETE FROM dbo.deliveries WHERE id = ?", delivery_id)
                     connection.commit()
                     self._remove_old_photo(photo_path, "")
+                except Exception:
+                    connection.rollback()
+                    raise
+
+    def permanently_delete_deliveries(self, delivery_ids: list[str]) -> dict[str, int]:
+        target_ids = normalize_delivery_ids(delivery_ids)
+        if not target_ids:
+            return {"deleted_records": 0}
+
+        placeholders = ", ".join("?" for _ in target_ids)
+        with self._lock:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                try:
+                    cursor.execute(
+                        f"SELECT {DELIVERY_SELECT} FROM dbo.deliveries WHERE id IN ({placeholders})",
+                        *target_ids,
+                    )
+                    records = [row_to_delivery(row) for row in cursor.fetchall()]
+                    if any(not record.get("deleted_at") for record in records):
+                        raise ValueError("Only deleted deliveries can be permanently deleted")
+
+                    photo_paths = [record.get("photo_path") for record in records]
+                    cursor.execute(
+                        f"DELETE FROM dbo.deliveries WHERE deleted_at IS NOT NULL AND id IN ({placeholders})",
+                        *target_ids,
+                    )
+                    deleted_records = max(int(cursor.rowcount or 0), 0)
+                    connection.commit()
+                    for photo_path in photo_paths:
+                        self._remove_old_photo(photo_path, "")
+                    return {"deleted_records": deleted_records}
                 except Exception:
                     connection.rollback()
                     raise

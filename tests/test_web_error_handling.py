@@ -290,6 +290,64 @@ class WebErrorHandlingTest(unittest.TestCase):
         self.assertIsNone(payload["delivery"]["deleted_at"])
         self.assertIsNone(payload["delivery"]["deleted_by"])
 
+    def test_admin_bulk_delete_moves_filtered_records_to_deleted_area(self):
+        deliveries = [
+            make_web_delivery("pending", "2026-06-10"),
+            make_web_delivery("done", "2026-06-10", status="normal"),
+            make_web_delivery("keep", "2026-06-10"),
+        ]
+        with running_server_with_deliveries(deliveries) as (address, data_file):
+            status, content_type, content = request_json(
+                address,
+                "POST",
+                "/api/admin/deliveries/bulk-delete",
+                body={
+                    "token": "admin-token",
+                    "delivery_ids": ["pending", "done"],
+                },
+                headers={"Content-Type": "application/json"},
+            )
+            saved = {
+                item["id"]: item
+                for item in json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]
+            }
+
+        payload = json.loads(content)
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", content_type)
+        self.assertEqual(payload["summary"], {"deleted_records": 2})
+        self.assertIsNotNone(saved["pending"]["deleted_at"])
+        self.assertIsNotNone(saved["done"]["deleted_at"])
+        self.assertIsNone(saved["keep"]["deleted_at"])
+
+    def test_admin_bulk_permanent_delete_removes_filtered_deleted_records_only(self):
+        deliveries = [
+            make_web_delivery("selected", "2026-06-10", status="normal", deleted_at="2026-06-11T10:00:00"),
+            make_web_delivery("kept-deleted", "2026-06-10", status="normal", deleted_at="2026-06-11T10:00:00"),
+            make_web_delivery("active", "2026-06-10", status="normal"),
+        ]
+        with running_server_with_deliveries(deliveries) as (address, data_file):
+            status, content_type, content = request_json(
+                address,
+                "POST",
+                "/api/admin/deliveries/bulk-permanent-delete",
+                body={
+                    "token": "admin-token",
+                    "delivery_ids": ["selected"],
+                },
+                headers={"Content-Type": "application/json"},
+            )
+            saved_ids = [
+                item["id"]
+                for item in json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]
+            ]
+
+        payload = json.loads(content)
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", content_type)
+        self.assertEqual(payload["summary"], {"deleted_records": 1})
+        self.assertEqual(saved_ids, ["kept-deleted", "active"])
+
     def test_admin_cleanup_removes_all_history_in_date_range(self):
         deliveries = [
             make_web_delivery("before", "2026-06-09"),

@@ -454,20 +454,33 @@ class DeliveryRepository:
             if not record:
                 raise KeyError("找不到出貨單")
 
-            if record.get("status"):
-                record["deleted_at"] = datetime.now().isoformat(timespec="seconds")
-                record["deleted_by"] = username
-                record["updated_at"] = record["deleted_at"]
-                self._write_data_unlocked(data)
-                return {"mode": "archived", "delivery": self._public_record(record)}
-
-            data["deliveries"] = [
-                item
-                for item in data.get("deliveries", [])
-                if item.get("id") != delivery_id
-            ]
+            now = datetime.now().isoformat(timespec="seconds")
+            record["deleted_at"] = now
+            record["deleted_by"] = username
+            record["updated_at"] = now
             self._write_data_unlocked(data)
-            return {"mode": "permanent"}
+            return {"mode": "archived", "delivery": self._public_record(record)}
+
+    def delete_deliveries(self, delivery_ids: list[str], username: str) -> dict[str, int]:
+        target_ids = normalize_delivery_ids(delivery_ids)
+        if not target_ids:
+            return {"deleted_records": 0}
+
+        target_set = set(target_ids)
+        deleted_records = 0
+        with self._lock:
+            data = self._read_data_unlocked()
+            now = datetime.now().isoformat(timespec="seconds")
+            for record in data.get("deliveries", []):
+                if record.get("id") not in target_set or record.get("deleted_at"):
+                    continue
+                record["deleted_at"] = now
+                record["deleted_by"] = username
+                record["updated_at"] = now
+                deleted_records += 1
+            if deleted_records:
+                self._write_data_unlocked(data)
+        return {"deleted_records": deleted_records}
 
     def permanently_delete_delivery(self, delivery_id: str) -> None:
         with self._lock:
@@ -486,6 +499,35 @@ class DeliveryRepository:
             ]
             self._write_data_unlocked(data)
             self._remove_old_photo_unlocked(photo_path, "")
+
+    def permanently_delete_deliveries(self, delivery_ids: list[str]) -> dict[str, int]:
+        target_ids = normalize_delivery_ids(delivery_ids)
+        if not target_ids:
+            return {"deleted_records": 0}
+
+        target_set = set(target_ids)
+        with self._lock:
+            data = self._read_data_unlocked()
+            records = [
+                record
+                for record in data.get("deliveries", [])
+                if record.get("id") in target_set
+            ]
+            if any(not record.get("deleted_at") for record in records):
+                raise ValueError("只能永久刪除刪除區內的出貨單")
+
+            photo_paths = [record.get("photo_path") for record in records]
+            data["deliveries"] = [
+                item
+                for item in data.get("deliveries", [])
+                if item.get("id") not in target_set
+            ]
+            deleted_records = len(records)
+            if deleted_records:
+                self._write_data_unlocked(data)
+            for photo_path in photo_paths:
+                self._remove_old_photo_unlocked(photo_path, "")
+        return {"deleted_records": deleted_records}
 
     def restore_delivery(self, delivery_id: str) -> dict[str, Any]:
         with self._lock:
@@ -658,6 +700,18 @@ def parse_cleanup_date_range(start_date: str, end_date: str) -> tuple[date, date
     if start > end:
         raise ValueError("開始日期不得晚於結束日期")
     return start, end
+
+
+def normalize_delivery_ids(delivery_ids: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for delivery_id in delivery_ids or []:
+        text = str(delivery_id).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized
 
 
 def cleanup_history_files(
