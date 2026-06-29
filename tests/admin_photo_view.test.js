@@ -21,16 +21,26 @@ test("shouldRenderInlinePhoto only shows delivered photos on the main delivery l
   assert.equal(shouldRenderInlinePhoto({ has_photo: true, status: "normal" }, false, false), false);
 });
 
-test("toggleAllPhotos button is in admin tabs between upload and archive", () => {
+test("toggleAllPhotos button is in delivery filters before bulk delete only", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "static", "admin.html"), "utf8");
   const navStart = html.indexOf('<nav class="admin-tabs"');
   const navEnd = html.indexOf("</nav>", navStart);
-  const uploadIndex = html.indexOf('data-view="upload"', navStart);
-  const toggleIndex = html.indexOf('id="toggleAllPhotos"', navStart);
-  const archiveIndex = html.indexOf('data-view="archive"', navStart);
+  const navToggleIndex = html.indexOf('id="toggleAllPhotos"', navStart);
+  const deliveriesStart = html.indexOf('<section id="deliveriesView"');
+  const deletedStart = html.indexOf('<section id="deletedView"');
+  const deliveryFilterStart = html.indexOf('<div class="filter-grid delivery-filter-grid">', deliveriesStart);
+  const countsIndex = html.indexOf('id="adminDeliveryCounts"', deliveryFilterStart);
+  const toggleIndex = html.indexOf('id="toggleAllPhotos"', deliveryFilterStart);
+  const bulkDeleteIndex = html.indexOf('id="bulkDeleteFiltered"', deliveryFilterStart);
+  const deletedToggleIndex = html.indexOf('id="toggleAllPhotos"', deletedStart);
 
   assert.ok(navStart >= 0);
   assert.ok(navEnd > navStart);
-  assert.ok(uploadIndex > navStart && uploadIndex < toggleIndex);
-  assert.ok(toggleIndex < archiveIndex && archiveIndex < navEnd);
+  assert.ok(navToggleIndex === -1 || navToggleIndex > navEnd);
+  assert.ok(deliveriesStart >= 0);
+  assert.ok(deletedStart > deliveriesStart);
+  assert.ok(deliveryFilterStart > deliveriesStart && deliveryFilterStart < deletedStart);
+  assert.ok(countsIndex < toggleIndex);
+  assert.ok(toggleIndex < bulkDeleteIndex);
+  assert.ok(deletedToggleIndex === -1);
 });

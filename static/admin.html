@@ -59,7 +59,6 @@
           <button class="tab-button active" data-view="deliveries" type="button">配送狀態</button>
           <button class="tab-button" data-view="deleted" type="button">刪除區</button>
           <button class="tab-button" data-view="upload" type="button">匯入 Excel</button>
-          <button id="toggleAllPhotos" class="secondary-button" type="button">檢視所有照片</button>
           <button class="tab-button" data-view="archive" type="button">封存照片</button>
           <button class="tab-button" data-view="users" type="button">帳號管理</button>
           <button id="adminLogout" class="ghost-button admin-logout-button" type="button">登出</button>
@@ -69,7 +68,7 @@
       </div>
 
       <section id="deliveriesView" class="admin-view">
-        <div class="filter-grid">
+        <div class="filter-grid delivery-filter-grid">
           <label>
             <span>開始日期</span>
             <input id="filterStartDate" type="date" />
@@ -92,13 +91,14 @@
             <span>未達交: 0</span>
             <span>共: 0</span>
           </div>
+          <button id="toggleAllPhotos" class="secondary-button" type="button">檢視所有照片</button>
           <button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除</button>
         </div>
         <section id="adminDeliveryList" class="admin-list"></section>
       </section>
 
       <section id="deletedView" class="admin-view" hidden>
-        <div class="filter-grid">
+        <div class="filter-grid deleted-filter-grid">
           <label>
             <span>開始日期</span>
             <input id="deletedFilterStartDate" type="date" />

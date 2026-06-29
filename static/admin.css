@@ -35,7 +35,7 @@
 
 .admin-tabs {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 0;
 }
@@ -78,12 +78,19 @@
 
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(90px, 0.7fr) minmax(220px, 1.2fr) minmax(100px, 0.7fr);
   gap: 8px;
   padding: 5px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.delivery-filter-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(90px, 0.7fr) minmax(220px, 1.2fr) minmax(120px, 0.8fr) minmax(100px, 0.7fr);
+}
+
+.deleted-filter-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(90px, 0.7fr) minmax(220px, 1.2fr) minmax(100px, 0.7fr);
 }
 
 .filter-grid label {

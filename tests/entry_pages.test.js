@@ -283,9 +283,10 @@ test("admin filtered delivery rows support bulk delete and filtered permanent de
 
   assert.match(html, /data-view="deleted"[^>]*>刪除區<\/button>/);
   assert.doesNotMatch(html, /已達交刪除區/);
-  assert.match(html, /<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
+  assert.match(html, /<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*<\/div>\s*<button id="toggleAllPhotos" class="secondary-button" type="button">[\s\S]*<\/button>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
   assert.match(html, /<div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="bulkPermanentDeleteFiltered" class="danger-button" type="button">永久刪除<\/button>/);
-  assert.match(css, /\.filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.delivery-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(120px,\s*0\.8fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.deleted-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(100px,\s*0\.7fr\);/);
   assert.match(adminJs, /deliveries:\s*\[\]/);
   assert.match(adminJs, /deletedDeliveries:\s*\[\]/);
   assert.match(adminJs, /bulkDeleteFiltered:\s*document\.querySelector\("#bulkDeleteFiltered"\)/);
@@ -368,7 +369,7 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.doesNotMatch(html, /配送紀錄維護/);
   assert.match(html, /<nav class="admin-tabs"[^>]*>[\s\S]*<button id="adminLogout" class="ghost-button admin-logout-button" type="button">[\s\S]*<\/button>\s*<\/nav>/);
   assert.match(css, /\.admin-sticky\s*\{[\s\S]*padding-bottom:\s*4px;/);
-  assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(7,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
+  assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
   assert.match(css, /\.admin-tabs button\s*\{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;[\s\S]*white-space:\s*nowrap;/);
   assert.match(css, /\.admin-logout-button\s*\{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/);
   assert.match(css, /\.admin-view\s*\{[\s\S]*gap:\s*4px;/);
@@ -416,9 +417,10 @@ test("admin filter row shows query before filtered delivery counts", () => {
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
-  assert.match(html, /<select id="filterDriver"><\/select>\s*<\/label>\s*<button id="applyFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
+  assert.match(html, /<select id="filterDriver"><\/select>\s*<\/label>\s*<button id="applyFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="toggleAllPhotos" class="secondary-button" type="button">[\s\S]*<\/button>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
   assert.match(html, /<select id="deletedFilterDriver"><\/select>\s*<\/label>\s*<button id="applyDeletedFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="bulkPermanentDeleteFiltered" class="danger-button" type="button">永久刪除<\/button>/);
-  assert.match(css, /\.filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.delivery-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(120px,\s*0\.8fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.deleted-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(100px,\s*0\.7fr\);/);
   assert.match(css, /\.filter-counts\s*\{[\s\S]*align-self:\s*end;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;[\s\S]*font-size:\s*14px;[\s\S]*white-space:\s*nowrap;/);
   assert.match(adminJs, /deliveryCounts:\s*document\.querySelector\("#adminDeliveryCounts"\)/);
   assert.match(adminJs, /deletedDeliveryCounts:\s*document\.querySelector\("#deletedDeliveryCounts"\)/);
