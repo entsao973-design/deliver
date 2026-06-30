@@ -483,6 +483,7 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(css, /\.user-form label,[\s\S]*\.user-form button,[\s\S]*\.permission-row,[\s\S]*\.user-account-panel \.admin-card\s*\{[\s\S]*height:\s*var\(--admin-user-row-height\);[\s\S]*min-height:\s*var\(--admin-user-row-height\);[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
   assert.match(css, /\.user-form label\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
   const userFormLabelBlock = cssBlockAfter(css, ".user-form label {");
+  assert.match(userFormLabelBlock, /gap:\s*8px;/);
   assert.doesNotMatch(userFormLabelBlock, /border:\s*1px/);
   assert.doesNotMatch(userFormLabelBlock, /border-radius:/);
   assert.doesNotMatch(userFormLabelBlock, /background:\s*#ffffff/);
