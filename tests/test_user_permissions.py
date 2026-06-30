@@ -202,6 +202,53 @@ class UserPermissionTest(unittest.TestCase):
         self.assertTrue(payload["permissions"]["deliveries"])
         self.assertFalse(payload["permissions"]["users"])
 
+    def test_admin_login_context_rejects_driver_without_vehicle_prompt(self):
+        with running_permission_server(
+            [
+                {
+                    "username": "driver",
+                    "password": "pass123",
+                    "role": "driver",
+                    "permissions": {"driver": True},
+                }
+            ]
+        ) as address:
+            status, content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {
+                    "username": "driver",
+                    "password": "pass123",
+                    "login_context": "admin",
+                },
+            )
+
+        self.assertEqual(status, 403)
+        self.assertIn("使用帳號非管理員，無法登入", content)
+        self.assertNotIn("請輸入車號", content)
+
+    def test_driver_login_without_vehicle_still_requires_vehicle(self):
+        with running_permission_server(
+            [
+                {
+                    "username": "driver",
+                    "password": "pass123",
+                    "role": "driver",
+                    "permissions": {"driver": True},
+                }
+            ]
+        ) as address:
+            status, content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "driver", "password": "pass123"},
+            )
+
+        self.assertEqual(status, 400)
+        self.assertIn("請輸入車號", content)
+
     def test_driver_login_is_blocked_when_driver_permission_is_disabled(self):
         deliveries = [
             {

@@ -211,10 +211,11 @@ async function handleAdminLogin(event) {
       body: {
         username: adminEls.loginUsername.value.trim(),
         password: adminEls.loginPassword.value,
+        login_context: "admin",
       },
     });
     if (result.role !== "admin") {
-      throw new Error("此帳號不是管理者");
+      throw new Error("使用帳號非管理員，無法登入");
     }
     adminState.token = result.token;
     adminState.permissions = normalizeAdminPermissions(result.permissions, result.role);

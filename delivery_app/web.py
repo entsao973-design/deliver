@@ -193,6 +193,7 @@ class DeliveryServer:
                 username = str(body.get("username", "")).strip()
                 password = str(body.get("password", ""))
                 vehicle_no = str(body.get("vehicle_no", "")).strip()
+                login_context = str(body.get("login_context", "")).strip()
                 requested_date = str(body.get("delivery_date", "")).strip() or None
 
                 ok, user, message = app.users.authenticate(username, password)
@@ -209,6 +210,10 @@ class DeliveryServer:
                         "permissions": permissions,
                     }
                     self._send_json({"token": token, "role": "admin", "user": user, "permissions": permissions})
+                    return
+
+                if login_context == "admin":
+                    self._json_error(HTTPStatus.FORBIDDEN, "使用帳號非管理員，無法登入")
                     return
 
                 if not permissions.get("driver", False):

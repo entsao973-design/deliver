@@ -225,7 +225,8 @@ test("admin page has its own account password login without vehicle field", () =
   assert.doesNotMatch(html, /adminLoginVehicle|vehicleNo|vehicleSelect|車號/);
   assert.match(html, /<main id="adminApp" class="admin-shell" hidden>/);
   assert.match(adminJs, /adminEls\.loginForm\.addEventListener\("submit", handleAdminLogin\)/);
-  assert.match(adminJs, /body:\s*\{\s*username:\s*adminEls\.loginUsername\.value\.trim\(\),\s*password:\s*adminEls\.loginPassword\.value/s);
+  assert.match(adminJs, /body:\s*\{\s*username:\s*adminEls\.loginUsername\.value\.trim\(\),\s*password:\s*adminEls\.loginPassword\.value,\s*login_context:\s*"admin"/s);
+  assert.match(adminJs, /使用帳號非管理員，無法登入/);
 });
 
 test("admin photo dialog supports ctrl wheel zoom and immediate rotate save", () => {
