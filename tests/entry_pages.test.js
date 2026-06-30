@@ -490,8 +490,8 @@ test("admin user management has account and permission assignment panels", () =>
   assert.doesNotMatch(userFormLabelBlock, /background:\s*#ffffff/);
   const userFormControlBlock = cssBlockAfter(css, ".user-form input,");
   assert.match(userFormControlBlock, /width:\s*auto;/);
-  assert.match(userFormControlBlock, /height:\s*34px;/);
-  assert.match(userFormControlBlock, /min-height:\s*34px;/);
+  assert.match(userFormControlBlock, /height:\s*24px;/);
+  assert.match(userFormControlBlock, /min-height:\s*24px;/);
   assert.doesNotMatch(userFormControlBlock, /(^|\n)\s*width:\s*100%;/);
   const userFormButtonBlock = cssBlockAfter(css, ".user-form button {");
   assert.match(userFormButtonBlock, /width:\s*auto;/);
@@ -499,8 +499,8 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(userFormButtonBlock, /min-height:\s*34px;/);
   const userActiveInputBlock = cssBlockAfter(css, ".user-form .user-active input");
   assert.match(userActiveInputBlock, /width:\s*auto;/);
-  assert.match(userActiveInputBlock, /height:\s*34px;/);
-  assert.match(userActiveInputBlock, /min-height:\s*34px;/);
+  assert.match(userActiveInputBlock, /height:\s*24px;/);
+  assert.match(userActiveInputBlock, /min-height:\s*24px;/);
   assert.doesNotMatch(userActiveInputBlock, /width:\s*16px|height:\s*16px|min-height:\s*16px/);
   assert.match(css, /\.permission-row > span,[\s\S]*\.permission-row label,[\s\S]*\.user-account-panel \.admin-card h3,[\s\S]*\.user-account-panel \.admin-meta,[\s\S]*\.user-account-panel \.admin-actions button\s*\{[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
   assert.match(css, /\.user-account-panel \.user-account-line\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
