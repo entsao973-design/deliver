@@ -387,21 +387,17 @@
   font-size: var(--admin-user-font-size);
 }
 
-.user-form label,
-.user-form button {
-  min-height: 0;
-  height: auto;
-  font-size: var(--admin-user-font-size);
-}
-
 .user-form label {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 4px;
   min-width: 0;
+  min-height: 0;
+  height: auto;
   padding: 0 8px;
   overflow: hidden;
+  font-size: var(--admin-user-font-size);
   color: #000000;
 }
 
@@ -411,9 +407,11 @@
 
 .user-form input,
 .user-form select {
+  width: auto;
+  max-width: 100%;
   min-width: 0;
-  min-height: 0;
-  height: auto;
+  min-height: 24px;
+  height: 24px;
   padding: 0 6px;
   border-radius: 6px;
   font-size: var(--admin-user-font-size);
@@ -430,6 +428,10 @@
 }
 
 .user-form button {
+  width: auto;
+  min-height: 24px;
+  height: 24px;
+  font-size: var(--admin-user-font-size);
   padding: 0 8px;
   white-space: nowrap;
 }
