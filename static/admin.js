@@ -85,6 +85,7 @@ const adminEls = {
   archiveList: document.querySelector("#archiveList"),
   downloadArchives: document.querySelector("#downloadArchives"),
   userUsername: document.querySelector("#userUsername"),
+  userDisplayName: document.querySelector("#userDisplayName"),
   userRole: document.querySelector("#userRole"),
   userPassword: document.querySelector("#userPassword"),
   userActive: document.querySelector("#userActive"),
@@ -769,7 +770,10 @@ async function loadUsers() {
       <div class="admin-actions"></div>
     `;
     card.querySelector("h3").textContent = user.username;
-    card.querySelector(".admin-meta").textContent = user.role === "admin" ? "管理人員" : "司機";
+    card.querySelector(".admin-meta").textContent = [
+      user.display_name ? `姓名 ${user.display_name}` : "",
+      user.role === "admin" ? "管理人員" : "司機",
+    ].filter(Boolean).join(" | ");
     card.querySelector(".user-state").textContent = [
       user.active ? "啟用" : "停用",
       `失敗 ${user.failed_attempts} 次`,
@@ -790,6 +794,7 @@ async function saveUser() {
       body: {
         token: adminState.token,
         username: adminEls.userUsername.value.trim(),
+        display_name: adminEls.userDisplayName.value.trim(),
         role: adminEls.userRole.value,
         password: adminEls.userPassword.value,
         active: adminEls.userActive.checked,
@@ -822,6 +827,7 @@ async function deleteUser(username) {
 
 function fillUserForm(user) {
   adminEls.userUsername.value = user.username;
+  adminEls.userDisplayName.value = user.display_name || "";
   adminEls.userRole.value = user.role;
   adminEls.userPassword.value = "";
   adminEls.userActive.checked = user.active;

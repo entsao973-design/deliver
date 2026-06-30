@@ -87,6 +87,7 @@ class UserStore:
         password: str | None = None,
         active: bool = True,
         permissions: dict[str, Any] | None = None,
+        display_name: str | None = None,
     ) -> dict[str, Any]:
         username = username.strip()
         role = role.strip()
@@ -117,6 +118,8 @@ class UserStore:
                 permissions if permissions is not None else user.get("permissions"),
                 role,
             )
+            if display_name is not None:
+                user["display_name"] = str(display_name).strip()
             user["updated_at"] = now
             if password:
                 user["password_hash"] = hash_password(password)
@@ -148,6 +151,7 @@ class UserStore:
                         seed.get("password", ""),
                         seed.get("role", "driver"),
                         seed.get("permissions"),
+                        seed.get("display_name"),
                     ))
 
             if "admin" not in {user["username"] for user in users}:
@@ -157,6 +161,7 @@ class UserStore:
 
             for user in users:
                 user["permissions"] = normalize_permissions(user.get("permissions"), user.get("role", "driver"))
+                user["display_name"] = str(user.get("display_name") or "").strip()
 
             self._write_unlocked(data)
 
@@ -184,12 +189,14 @@ def make_seed_user(
     password: str,
     role: str,
     permissions: dict[str, Any] | None = None,
+    display_name: str | None = None,
 ) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
     normalized_role = role if role in ROLES else "driver"
     return {
         "username": username,
         "role": normalized_role,
+        "display_name": str(display_name or "").strip(),
         "password_hash": hash_password(password),
         "active": True,
         "permissions": normalize_permissions(permissions, normalized_role),
@@ -225,6 +232,7 @@ def public_user(user: dict[str, Any]) -> dict[str, Any]:
     return {
         "username": user["username"],
         "role": role,
+        "display_name": str(user.get("display_name") or ""),
         "active": bool(user.get("active", True)),
         "permissions": normalize_permissions(user.get("permissions"), role),
         "failed_attempts": int(user.get("failed_attempts", 0)),

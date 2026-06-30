@@ -122,6 +122,62 @@ class UserPermissionTest(unittest.TestCase):
             },
         )
 
+    def test_user_display_name_is_saved_and_returned(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = UserStore(str(Path(temp_dir) / "users.json"), [])
+            saved = store.upsert_user(
+                "driver-a",
+                "driver",
+                "pass123",
+                True,
+                {"driver": True},
+                "王小明",
+            )
+
+            listed = {user["username"]: user for user in store.list_users()}
+            ok, user, message = store.authenticate("driver-a", "pass123")
+
+        self.assertEqual(saved["display_name"], "王小明")
+        self.assertEqual(listed["driver-a"]["display_name"], "王小明")
+        self.assertTrue(ok, message)
+        self.assertEqual(user["display_name"], "王小明")
+
+    def test_admin_user_api_saves_display_name(self):
+        with running_permission_server([]) as address:
+            status, login_content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "admin", "password": "admin123"},
+            )
+            token = json.loads(login_content)["token"]
+
+            save_status, _ = request_json(
+                address,
+                "POST",
+                "/api/admin/users",
+                {
+                    "token": token,
+                    "username": "driver-a",
+                    "display_name": "王小明",
+                    "role": "driver",
+                    "password": "pass123",
+                    "active": True,
+                    "permissions": {"driver": True},
+                },
+            )
+            list_status, list_content = request_json(
+                address,
+                "GET",
+                f"/api/admin/users?token={token}",
+            )
+
+        users = {user["username"]: user for user in json.loads(list_content)["users"]}
+        self.assertEqual(status, 200)
+        self.assertEqual(save_status, 200)
+        self.assertEqual(list_status, 200)
+        self.assertEqual(users["driver-a"]["display_name"], "王小明")
+
     def test_login_response_includes_permissions(self):
         with running_permission_server(
             [

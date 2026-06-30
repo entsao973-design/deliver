@@ -341,6 +341,7 @@ IF OBJECT_ID(N'dbo.users', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.users (
         username nvarchar(255) NOT NULL CONSTRAINT PK_users PRIMARY KEY,
+        display_name nvarchar(255) NOT NULL CONSTRAINT DF_users_display_name DEFAULT N'',
         role nvarchar(20) NOT NULL,
         password_hash nvarchar(512) NOT NULL,
         active bit NOT NULL CONSTRAINT DF_users_active DEFAULT 1,
@@ -355,6 +356,10 @@ END
 IF COL_LENGTH(N'dbo.users', N'permissions_json') IS NULL
 BEGIN
     ALTER TABLE dbo.users ADD permissions_json nvarchar(max) NULL;
+END
+IF COL_LENGTH(N'dbo.users', N'display_name') IS NULL
+BEGIN
+    ALTER TABLE dbo.users ADD display_name nvarchar(255) NOT NULL CONSTRAINT DF_users_display_name DEFAULT N'';
 END
 """
             )
@@ -1341,6 +1346,7 @@ class SqlServerUserStore(SqlServerBase):
         self._lock = threading.Lock()
         super().__init__(database_config)
         self._permissions_column_available = self._user_permissions_column_exists()
+        self._display_name_column_available = self._user_display_name_column_exists()
         self._ensure_users(seed_users or [])
 
     def authenticate(self, username: str, password: str) -> tuple[bool, dict[str, Any] | None, str]:
@@ -1411,7 +1417,8 @@ WHERE username = ?
 SELECT username, role, active, failed_attempts,
        CONVERT(varchar(19), locked_until, 126) AS locked_until,
        CONVERT(varchar(19), last_login_at, 126) AS last_login_at,
-       {self._permissions_select()} AS permissions_json
+       {self._permissions_select()} AS permissions_json,
+       {self._display_name_select()} AS display_name
 FROM dbo.users
 ORDER BY username
 """,
@@ -1426,6 +1433,7 @@ ORDER BY username
                 "locked_until": row[4],
                 "last_login_at": row[5],
                 "permissions": parse_permissions_json(row[6], row[1]),
+                "display_name": row[7],
             })
             for row in rows
         ]
@@ -1437,6 +1445,7 @@ ORDER BY username
         password: str | None = None,
         active: bool = True,
         permissions: dict[str, Any] | None = None,
+        display_name: str | None = None,
     ) -> dict[str, Any]:
         username = username.strip()
         role = role.strip()
@@ -1446,6 +1455,8 @@ ORDER BY username
             raise ValueError("角色必須是 driver 或 admin")
         if permissions is not None and not self._permissions_column_available:
             raise ValueError("SQL Server 尚未加入帳號權限欄位，請先執行 docs/sql/2026-06-30-add-user-permissions.sql")
+        if display_name is not None and not self._display_name_column_available:
+            raise ValueError("SQL Server 尚未加入使用者名稱欄位，請先執行 docs/sql/2026-06-30-add-user-display-name.sql")
 
         with self._lock:
             with self._connect() as connection:
@@ -1458,10 +1469,28 @@ ORDER BY username
                         role,
                     )
                     permissions_json = json.dumps(normalized_permissions, ensure_ascii=False)
+                    display_name_value = str(display_name if display_name is not None else (user or {}).get("display_name", "")).strip()
                     if not user:
                         if not password:
                             raise ValueError("新增使用者需要密碼")
-                        if self._permissions_column_available:
+                        if self._permissions_column_available and self._display_name_column_available:
+                            cursor.execute(
+                                """
+INSERT INTO dbo.users (
+    username, display_name, role, password_hash, active, permissions_json, failed_attempts,
+    locked_until, last_login_at, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, ?)
+""",
+                                username,
+                                display_name_value,
+                                role,
+                                hash_password(password),
+                                1 if active else 0,
+                                permissions_json,
+                                now,
+                                now,
+                            )
+                        elif self._permissions_column_available:
                             cursor.execute(
                                 """
 INSERT INTO dbo.users (
@@ -1493,7 +1522,29 @@ INSERT INTO dbo.users (
                             now,
                             )
                     elif password:
-                        if self._permissions_column_available:
+                        if self._permissions_column_available and self._display_name_column_available:
+                            cursor.execute(
+                                """
+UPDATE dbo.users
+SET role = ?,
+    display_name = ?,
+    password_hash = ?,
+    active = ?,
+    permissions_json = ?,
+    failed_attempts = 0,
+    locked_until = NULL,
+    updated_at = ?
+WHERE username = ?
+""",
+                                role,
+                                display_name_value,
+                                hash_password(password),
+                                1 if active else 0,
+                                permissions_json,
+                                now,
+                                username,
+                            )
+                        elif self._permissions_column_available:
                             cursor.execute(
                                 """
 UPDATE dbo.users
@@ -1532,7 +1583,25 @@ WHERE username = ?
                             username,
                             )
                     else:
-                        if self._permissions_column_available:
+                        if self._permissions_column_available and self._display_name_column_available:
+                            cursor.execute(
+                                """
+UPDATE dbo.users
+SET role = ?,
+    display_name = ?,
+    active = ?,
+    permissions_json = ?,
+    updated_at = ?
+WHERE username = ?
+""",
+                                role,
+                                display_name_value,
+                                1 if active else 0,
+                                permissions_json,
+                                now,
+                                username,
+                            )
+                        elif self._permissions_column_available:
                             cursor.execute(
                                 """
 UPDATE dbo.users
@@ -1592,8 +1661,29 @@ WHERE username = ?
                         seed.get("password", ""),
                         seed.get("role", "driver"),
                         seed.get("permissions"),
+                        seed.get("display_name"),
                     )
-                    if self._permissions_column_available:
+                    if self._permissions_column_available and self._display_name_column_available:
+                        cursor.execute(
+                            """
+INSERT INTO dbo.users (
+    username, display_name, role, password_hash, active, permissions_json, failed_attempts,
+    locked_until, last_login_at, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""",
+                            user["username"],
+                            user.get("display_name", ""),
+                            user["role"],
+                            user["password_hash"],
+                            1 if user.get("active", True) else 0,
+                            json.dumps(user["permissions"], ensure_ascii=False),
+                            int(user.get("failed_attempts", 0)),
+                            to_datetime(user.get("locked_until")),
+                            to_datetime(user.get("last_login_at")),
+                            to_datetime(user.get("created_at")),
+                            to_datetime(user.get("updated_at")),
+                        )
+                    elif self._permissions_column_available:
                         cursor.execute(
                             """
 INSERT INTO dbo.users (
@@ -1650,7 +1740,8 @@ INSERT INTO dbo.users (
 SELECT username, role, password_hash, active, failed_attempts,
        CONVERT(varchar(19), locked_until, 126) AS locked_until,
        CONVERT(varchar(19), last_login_at, 126) AS last_login_at,
-       {self._permissions_select()} AS permissions_json
+       {self._permissions_select()} AS permissions_json,
+       {self._display_name_select()} AS display_name
 FROM dbo.users
 WHERE username = ?
 """,
@@ -1668,6 +1759,7 @@ WHERE username = ?
             "locked_until": row[5],
             "last_login_at": row[6],
             "permissions": parse_permissions_json(row[7], row[1]),
+            "display_name": row[8],
         }
 
     def _permissions_select(self) -> str:
@@ -1675,10 +1767,22 @@ WHERE username = ?
             return "permissions_json"
         return "CAST(NULL AS nvarchar(max))"
 
+    def _display_name_select(self) -> str:
+        if self._display_name_column_available:
+            return "display_name"
+        return "CAST(N'' AS nvarchar(255))"
+
     def _user_permissions_column_exists(self) -> bool:
         with self._connect() as connection:
             cursor = connection.cursor()
             cursor.execute("SELECT COL_LENGTH(N'dbo.users', N'permissions_json')")
+            row = cursor.fetchone()
+            return bool(row and row[0] is not None)
+
+    def _user_display_name_column_exists(self) -> bool:
+        with self._connect() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT COL_LENGTH(N'dbo.users', N'display_name')")
             row = cursor.fetchone()
             return bool(row and row[0] is not None)
 

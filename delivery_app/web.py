@@ -586,11 +586,12 @@ class DeliveryServer:
                     return
                 try:
                     user = app.users.upsert_user(
-                        str(body.get("username", "")),
-                        str(body.get("role", "")),
-                        str(body.get("password", "")) or None,
-                        bool(body.get("active", True)),
-                        body.get("permissions"),
+                        username=str(body.get("username", "")),
+                        role=str(body.get("role", "")),
+                        password=str(body.get("password", "")) or None,
+                        active=bool(body.get("active", True)),
+                        permissions=body.get("permissions"),
+                        display_name=str(body.get("display_name", "")).strip(),
                     )
                 except ValueError as exc:
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))

@@ -464,6 +464,8 @@ test("admin user management has account and permission assignment panels", () =>
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
   assert.match(html, /<div class="user-management-grid">[\s\S]*<section class="admin-panel user-account-panel">[\s\S]*<h2>帳號密碼管理<\/h2>[\s\S]*<section id="userList" class="admin-list"><\/section>[\s\S]*<section class="admin-panel user-permission-panel">[\s\S]*<h2>權限指派<\/h2>/);
+  assert.match(html, /<span>帳號<\/span>\s*<input id="userUsername" autocomplete="off" \/>/);
+  assert.match(html, /<span>使用者名稱<\/span>\s*<input id="userDisplayName" autocomplete="off" \/>/);
   for (const [key, label] of [
     ["deliveries", "配送狀態"],
     ["deleted", "刪除區"],
@@ -477,6 +479,10 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(css, /\.user-management-grid\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
   assert.match(css, /\.permission-row\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto;/);
   assert.match(adminJs, /userPermissionInputs:\s*document\.querySelectorAll\("\[data-user-permission\]"\)/);
+  assert.match(adminJs, /userDisplayName:\s*document\.querySelector\("#userDisplayName"\)/);
+  assert.match(adminJs, /display_name:\s*adminEls\.userDisplayName\.value\.trim\(\),/);
+  assert.match(adminJs, /adminEls\.userDisplayName\.value = user\.display_name \|\| "";/);
+  assert.match(adminJs, /user\.display_name \? `姓名 \$\{user\.display_name\}` : ""/);
   assert.match(adminJs, /function readUserPermissionControls\(\) \{/);
   assert.match(adminJs, /function setUserPermissionControls\(permissions, role = adminEls\.userRole\.value\) \{/);
   assert.match(adminJs, /permissions:\s*readUserPermissionControls\(\),/);
