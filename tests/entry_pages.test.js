@@ -465,7 +465,7 @@ test("admin user management has account and permission assignment panels", () =>
 
   assert.match(html, /<div class="user-management-grid">[\s\S]*<section class="admin-panel user-account-panel">[\s\S]*<h2>帳號密碼管理<\/h2>[\s\S]*<section id="userList" class="admin-list"><\/section>[\s\S]*<section class="admin-panel user-permission-panel">[\s\S]*<h2>權限指派<\/h2>/);
   assert.match(html, /<span>帳號<\/span>\s*<input id="userUsername" autocomplete="off" \/>/);
-  assert.match(html, /<span>使用者名稱<\/span>\s*<input id="userDisplayName" autocomplete="off" \/>/);
+  assert.match(html, /<span>名稱<\/span>\s*<input id="userDisplayName" autocomplete="off" \/>/);
   for (const [key, label] of [
     ["deliveries", "配送狀態"],
     ["deleted", "刪除區"],
