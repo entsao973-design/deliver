@@ -478,6 +478,11 @@ test("admin user management has account and permission assignment panels", () =>
   }
   assert.match(css, /\.user-management-grid\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
   assert.match(css, /\.permission-row\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto;/);
+  assert.match(css, /:root\s*\{[\s\S]*--admin-user-row-height:\s*34px;[\s\S]*--admin-user-font-size:\s*13px;/);
+  assert.match(css, /\.user-form\s*\{[\s\S]*grid-template-columns:\s*minmax\(86px,\s*1fr\) minmax\(120px,\s*1\.2fr\) minmax\(82px,\s*0\.8fr\) minmax\(96px,\s*1fr\) minmax\(66px,\s*0\.6fr\) minmax\(90px,\s*0\.8fr\);[\s\S]*gap:\s*8px;[\s\S]*align-items:\s*stretch;/);
+  assert.match(css, /\.user-form label,[\s\S]*\.user-form button,[\s\S]*\.permission-row,[\s\S]*\.user-account-panel \.admin-card\s*\{[\s\S]*height:\s*var\(--admin-user-row-height\);[\s\S]*min-height:\s*var\(--admin-user-row-height\);[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
+  assert.match(css, /\.user-form label\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
+  assert.match(css, /\.permission-row > span,[\s\S]*\.permission-row label,[\s\S]*\.user-account-panel \.admin-card h3,[\s\S]*\.user-account-panel \.admin-meta,[\s\S]*\.user-account-panel \.admin-actions button\s*\{[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
   assert.match(adminJs, /userPermissionInputs:\s*document\.querySelectorAll\("\[data-user-permission\]"\)/);
   assert.match(adminJs, /userDisplayName:\s*document\.querySelector\("#userDisplayName"\)/);
   assert.match(adminJs, /display_name:\s*adminEls\.userDisplayName\.value\.trim\(\),/);

@@ -1,3 +1,8 @@
+:root {
+  --admin-user-row-height: 34px;
+  --admin-user-font-size: 13px;
+}
+
 .admin-shell {
   width: 100%;
   max-width: none;
@@ -360,15 +365,73 @@
   align-content: start;
 }
 
+.user-account-panel {
+  overflow-x: auto;
+}
+
 .user-account-panel .admin-list {
   max-height: none;
 }
 
 .user-form {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  align-items: end;
+  grid-template-columns: minmax(86px, 1fr) minmax(120px, 1.2fr) minmax(82px, 0.8fr) minmax(96px, 1fr) minmax(66px, 0.6fr) minmax(90px, 0.8fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.user-form label,
+.user-form button,
+.permission-row,
+.user-account-panel .admin-card {
+  height: var(--admin-user-row-height);
+  min-height: var(--admin-user-row-height);
+  font-size: var(--admin-user-font-size);
+}
+
+.user-form label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #000000;
+}
+
+.user-form label span {
+  white-space: nowrap;
+}
+
+.user-form input,
+.user-form select {
+  min-width: 0;
+  min-height: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: var(--admin-user-font-size);
+}
+
+.user-form .user-active {
+  grid-template-columns: auto auto;
+  justify-content: start;
+}
+
+.user-form .user-active input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.user-form button {
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 .user-permission-list {
@@ -381,16 +444,22 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
-  min-height: 32px;
-  padding: 6px 8px;
+  padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #ffffff;
 }
 
+.permission-row > span,
+.permission-row label,
+.user-account-panel .admin-card h3,
+.user-account-panel .admin-meta,
+.user-account-panel .admin-actions button {
+  font-size: var(--admin-user-font-size);
+}
+
 .permission-row > span {
   color: #000000;
-  font-size: 14px;
   font-weight: 700;
 }
 
@@ -399,7 +468,6 @@
   align-items: center;
   gap: 4px;
   color: #000000;
-  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -410,6 +478,55 @@
 
 .user-active {
   align-self: center;
+}
+
+.user-account-panel .admin-card {
+  grid-template-columns: minmax(140px, 1.2fr) minmax(130px, 1fr) auto;
+  gap: 8px;
+  padding: 0 8px;
+  overflow: hidden;
+}
+
+.user-account-panel .admin-card > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.user-account-panel .admin-card h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-account-panel .admin-meta {
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-account-panel .user-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-account-panel .admin-actions {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.user-account-panel .admin-actions button {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 8px;
 }
 
 #uploadView,
@@ -423,7 +540,6 @@
   .admin-tabs,
   .filter-grid,
   .user-management-grid,
-  .user-form,
   .admin-card:not(.delivery-row) {
     grid-template-columns: 1fr;
   }
