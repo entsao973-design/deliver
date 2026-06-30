@@ -56,11 +56,11 @@
     <main id="adminApp" class="admin-shell" hidden>
       <div class="admin-sticky">
         <nav class="admin-tabs" aria-label="管理選單">
-          <button class="tab-button active" data-view="deliveries" type="button">配送狀態</button>
-          <button class="tab-button" data-view="deleted" type="button">刪除區</button>
-          <button class="tab-button" data-view="upload" type="button">匯入 Excel</button>
-          <button class="tab-button" data-view="archive" type="button">封存照片</button>
-          <button class="tab-button" data-view="users" type="button">帳號管理</button>
+          <button class="tab-button active" data-view="deliveries" data-permission="deliveries" type="button">配送狀態</button>
+          <button class="tab-button" data-view="deleted" data-permission="deleted" type="button">刪除區</button>
+          <button class="tab-button" data-view="upload" data-permission="upload" type="button">匯入 Excel</button>
+          <button class="tab-button" data-view="archive" data-permission="archive" type="button">封存照片</button>
+          <button class="tab-button" data-view="users" data-permission="users" type="button">帳號管理</button>
           <button id="adminLogout" class="ghost-button admin-logout-button" type="button">登出</button>
         </nav>
 
@@ -154,32 +154,69 @@
       </section>
 
       <section id="usersView" class="admin-view" hidden>
-        <div class="admin-panel">
-          <h2>帳號密碼管理</h2>
-          <div class="user-form">
-            <label>
-              <span>使用者名稱</span>
-              <input id="userUsername" autocomplete="off" />
-            </label>
-            <label>
-              <span>角色</span>
-              <select id="userRole">
-                <option value="driver">司機</option>
-                <option value="admin">管理人員</option>
-              </select>
-            </label>
-            <label>
-              <span>新密碼</span>
-              <input id="userPassword" type="password" autocomplete="new-password" />
-            </label>
-            <label class="toggle-row user-active">
-              <input id="userActive" type="checkbox" checked />
-              <span>啟用</span>
-            </label>
-            <button id="saveUser" class="primary-button" type="button">儲存帳號</button>
-          </div>
+        <div class="user-management-grid">
+          <section class="admin-panel user-account-panel">
+            <h2>帳號密碼管理</h2>
+            <div class="user-form">
+              <label>
+                <span>使用者名稱</span>
+                <input id="userUsername" autocomplete="off" />
+              </label>
+              <label>
+                <span>角色</span>
+                <select id="userRole">
+                  <option value="driver">司機</option>
+                  <option value="admin">管理人員</option>
+                </select>
+              </label>
+              <label>
+                <span>新密碼</span>
+                <input id="userPassword" type="password" autocomplete="new-password" />
+              </label>
+              <label class="toggle-row user-active">
+                <input id="userActive" type="checkbox" checked />
+                <span>啟用</span>
+              </label>
+              <button id="saveUser" class="primary-button" type="button">儲存帳號</button>
+            </div>
+            <section id="userList" class="admin-list"></section>
+          </section>
+          <section class="admin-panel user-permission-panel">
+            <h2>權限指派</h2>
+            <div id="userPermissionList" class="user-permission-list" aria-label="權限指派">
+              <div class="permission-row" data-permission-row="deliveries">
+                <span>配送狀態</span>
+                <label><input data-user-permission="deliveries" name="permission-deliveries" type="radio" value="enabled" />啟用</label>
+                <label><input data-user-permission="deliveries" name="permission-deliveries" type="radio" value="disabled" />禁用</label>
+              </div>
+              <div class="permission-row" data-permission-row="deleted">
+                <span>刪除區</span>
+                <label><input data-user-permission="deleted" name="permission-deleted" type="radio" value="enabled" />啟用</label>
+                <label><input data-user-permission="deleted" name="permission-deleted" type="radio" value="disabled" />禁用</label>
+              </div>
+              <div class="permission-row" data-permission-row="upload">
+                <span>匯入 Excel</span>
+                <label><input data-user-permission="upload" name="permission-upload" type="radio" value="enabled" />啟用</label>
+                <label><input data-user-permission="upload" name="permission-upload" type="radio" value="disabled" />禁用</label>
+              </div>
+              <div class="permission-row" data-permission-row="archive">
+                <span>封存照片</span>
+                <label><input data-user-permission="archive" name="permission-archive" type="radio" value="enabled" />啟用</label>
+                <label><input data-user-permission="archive" name="permission-archive" type="radio" value="disabled" />禁用</label>
+              </div>
+              <div class="permission-row" data-permission-row="users">
+                <span>帳號管理</span>
+                <label><input data-user-permission="users" name="permission-users" type="radio" value="enabled" />啟用</label>
+                <label><input data-user-permission="users" name="permission-users" type="radio" value="disabled" />禁用</label>
+              </div>
+              <div class="permission-row" data-permission-row="driver">
+                <span>物流士配送作業</span>
+                <label><input data-user-permission="driver" name="permission-driver" type="radio" value="enabled" />啟用</label>
+                <label><input data-user-permission="driver" name="permission-driver" type="radio" value="disabled" />禁用</label>
+              </div>
+            </div>
+          </section>
         </div>
-        <section id="userList" class="admin-list"></section>
       </section>
     </main>
 

@@ -113,6 +113,7 @@ els.loginForm.addEventListener("submit", async (event) => {
     state.token = result.token;
     localStorage.setItem("delivery_token", state.token);
     localStorage.setItem("delivery_role", result.role);
+    localStorage.setItem("delivery_permissions", JSON.stringify(result.permissions || {}));
     saveRememberedLogin(payload.username, payload.vehicle_no);
 
     if (result.role === "admin") {
@@ -153,6 +154,7 @@ els.logoutButton.addEventListener("click", () => {
   state.deliveries = [];
   localStorage.removeItem("delivery_token");
   localStorage.removeItem("delivery_role");
+  localStorage.removeItem("delivery_permissions");
   localStorage.removeItem("delivery_profile");
   localStorage.removeItem("delivery_selected_date");
   showLoginScreen();
@@ -614,6 +616,7 @@ function showLoginScreen() {
   els.loginScreen.hidden = false;
   state.token = "";
   localStorage.removeItem("delivery_token");
+  localStorage.removeItem("delivery_permissions");
   loadVehicleOptions();
 }
 

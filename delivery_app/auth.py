@@ -14,6 +14,25 @@ from typing import Any
 LOCK_AFTER_FAILURES = 5
 LOCK_MINUTES = 10
 ROLES = {"driver", "admin"}
+PERMISSION_KEYS = ("deliveries", "deleted", "upload", "archive", "users", "driver")
+ROLE_DEFAULT_PERMISSIONS = {
+    "admin": {
+        "deliveries": True,
+        "deleted": True,
+        "upload": True,
+        "archive": True,
+        "users": True,
+        "driver": True,
+    },
+    "driver": {
+        "deliveries": False,
+        "deleted": False,
+        "upload": False,
+        "archive": False,
+        "users": False,
+        "driver": True,
+    },
+}
 
 
 class UserStore:
@@ -67,6 +86,7 @@ class UserStore:
         role: str,
         password: str | None = None,
         active: bool = True,
+        permissions: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         username = username.strip()
         role = role.strip()
@@ -93,6 +113,10 @@ class UserStore:
 
             user["role"] = role
             user["active"] = bool(active)
+            user["permissions"] = normalize_permissions(
+                permissions if permissions is not None else user.get("permissions"),
+                role,
+            )
             user["updated_at"] = now
             if password:
                 user["password_hash"] = hash_password(password)
@@ -119,12 +143,20 @@ class UserStore:
             for seed in seed_users:
                 username = str(seed.get("username", "")).strip()
                 if username and username not in by_name:
-                    users.append(make_seed_user(username, seed.get("password", ""), seed.get("role", "driver")))
+                    users.append(make_seed_user(
+                        username,
+                        seed.get("password", ""),
+                        seed.get("role", "driver"),
+                        seed.get("permissions"),
+                    ))
 
             if "admin" not in {user["username"] for user in users}:
                 users.append(make_seed_user("admin", "admin123", "admin"))
             if "driver" not in {user["username"] for user in users}:
                 users.append(make_seed_user("driver", "1234", "driver"))
+
+            for user in users:
+                user["permissions"] = normalize_permissions(user.get("permissions"), user.get("role", "driver"))
 
             self._write_unlocked(data)
 
@@ -147,13 +179,20 @@ class UserStore:
         temp_path.replace(self.user_file)
 
 
-def make_seed_user(username: str, password: str, role: str) -> dict[str, Any]:
+def make_seed_user(
+    username: str,
+    password: str,
+    role: str,
+    permissions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
+    normalized_role = role if role in ROLES else "driver"
     return {
         "username": username,
-        "role": role if role in ROLES else "driver",
+        "role": normalized_role,
         "password_hash": hash_password(password),
         "active": True,
+        "permissions": normalize_permissions(permissions, normalized_role),
         "failed_attempts": 0,
         "locked_until": None,
         "last_login_at": None,
@@ -182,14 +221,33 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def public_user(user: dict[str, Any]) -> dict[str, Any]:
+    role = user.get("role", "driver")
     return {
         "username": user["username"],
-        "role": user.get("role", "driver"),
+        "role": role,
         "active": bool(user.get("active", True)),
+        "permissions": normalize_permissions(user.get("permissions"), role),
         "failed_attempts": int(user.get("failed_attempts", 0)),
         "locked_until": user.get("locked_until"),
         "last_login_at": user.get("last_login_at"),
     }
+
+
+def default_permissions_for_role(role: str) -> dict[str, bool]:
+    return dict(ROLE_DEFAULT_PERMISSIONS.get(role, ROLE_DEFAULT_PERMISSIONS["driver"]))
+
+
+def normalize_permissions(value: Any, role: str) -> dict[str, bool]:
+    permissions = default_permissions_for_role(role)
+    if isinstance(value, dict):
+        for key in PERMISSION_KEYS:
+            if key in value:
+                permissions[key] = bool(value[key])
+    elif isinstance(value, list):
+        enabled = {str(item) for item in value}
+        for key in PERMISSION_KEYS:
+            permissions[key] = key in enabled
+    return permissions
 
 
 def parse_time(value: str | None) -> datetime | None:
@@ -203,4 +261,3 @@ def parse_time(value: str | None) -> datetime | None:
 
 def b64(value: bytes) -> str:
     return base64.b64encode(value).decode("ascii")
-

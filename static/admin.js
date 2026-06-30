@@ -1,5 +1,33 @@
+const ADMIN_PERMISSION_KEYS = ["deliveries", "deleted", "upload", "archive", "users", "driver"];
+const ADMIN_VIEW_PERMISSIONS = {
+  deliveries: "deliveries",
+  deleted: "deleted",
+  upload: "upload",
+  archive: "archive",
+  users: "users",
+};
+const ADMIN_DEFAULT_PERMISSIONS = {
+  admin: {
+    deliveries: true,
+    deleted: true,
+    upload: true,
+    archive: true,
+    users: true,
+    driver: true,
+  },
+  driver: {
+    deliveries: false,
+    deleted: false,
+    upload: false,
+    archive: false,
+    users: false,
+    driver: true,
+  },
+};
+
 const adminState = {
   token: localStorage.getItem("delivery_token") || "",
+  permissions: readStoredPermissions(),
   view: "deliveries",
   options: { dates: [], companies: [], drivers: [] },
   deliveries: [],
@@ -60,6 +88,7 @@ const adminEls = {
   userRole: document.querySelector("#userRole"),
   userPassword: document.querySelector("#userPassword"),
   userActive: document.querySelector("#userActive"),
+  userPermissionInputs: document.querySelectorAll("[data-user-permission]"),
   saveUser: document.querySelector("#saveUser"),
   userList: document.querySelector("#userList"),
   photoDialog: document.querySelector("#adminPhotoDialog"),
@@ -82,7 +111,9 @@ createPhotoViewer({
 adminEls.logout.addEventListener("click", () => {
   localStorage.removeItem("delivery_token");
   localStorage.removeItem("delivery_role");
+  localStorage.removeItem("delivery_permissions");
   adminState.token = "";
+  adminState.permissions = normalizeAdminPermissions(null);
   showAdminLogin();
 });
 adminEls.loginForm.addEventListener("submit", handleAdminLogin);
@@ -96,7 +127,9 @@ adminEls.togglePassword.addEventListener("click", () => {
 });
 
 for (const button of adminEls.tabs) {
-  button.addEventListener("click", () => setView(button.dataset.view));
+  button.addEventListener("click", () => {
+    setView(button.dataset.view).catch((error) => setAdminMessage(error.message, true));
+  });
 }
 
 adminEls.applyFilters.addEventListener("click", () => applyAdminFilters(false));
@@ -113,6 +146,9 @@ adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
 adminEls.archiveDate.addEventListener("change", loadArchives);
 adminEls.downloadArchives.addEventListener("click", downloadSelectedArchives);
+adminEls.userRole.addEventListener("change", () => {
+  setUserPermissionControls(null, adminEls.userRole.value);
+});
 adminEls.saveUser.addEventListener("click", saveUser);
 adminEls.photoRotateLeft.addEventListener("click", () => rotateAdminPhoto(-90, adminEls.photoRotateLeft));
 adminEls.photoRotateRight.addEventListener("click", () => rotateAdminPhoto(90, adminEls.photoRotateRight));
@@ -132,6 +168,7 @@ adminEls.dropZone.addEventListener("drop", (event) => {
   adminEls.dropZone.classList.remove("dragging");
   setUploadFiles([...event.dataTransfer.files].filter((file) => /\.(xlsm|xlsx)$/i.test(file.name)));
 });
+setUserPermissionControls(null, adminEls.userRole.value);
 
 async function initAdmin() {
   if (!adminState.token || localStorage.getItem("delivery_role") !== "admin") {
@@ -148,9 +185,13 @@ async function initAdmin() {
     adminEls.deletedFilterEndDate.value = today;
     adminEls.archiveDate.value = today;
     updateToggleAllPhotosButton();
-    await loadOptions();
-    await loadDeliveries(false);
-    await loadUsers();
+    applyAdminPermissions(adminState.permissions);
+    const initialView = firstAllowedAdminView();
+    if (!initialView) {
+      setAdminMessage("此帳號尚未啟用任何管理功能", true);
+      return;
+    }
+    await setView(initialView);
   } catch (error) {
     setAdminMessage(error.message, true);
     if (error.status === 401 || error.status === 403) {
@@ -175,8 +216,10 @@ async function handleAdminLogin(event) {
       throw new Error("此帳號不是管理者");
     }
     adminState.token = result.token;
+    adminState.permissions = normalizeAdminPermissions(result.permissions, result.role);
     localStorage.setItem("delivery_token", result.token);
     localStorage.setItem("delivery_role", result.role);
+    localStorage.setItem("delivery_permissions", JSON.stringify(adminState.permissions));
     adminEls.loginPassword.value = "";
     await initAdmin();
   } catch (error) {
@@ -195,7 +238,62 @@ function showAdminApp() {
   clearAdminMessage();
 }
 
-function setView(view) {
+function readStoredPermissions() {
+  try {
+    return normalizeAdminPermissions(JSON.parse(localStorage.getItem("delivery_permissions") || "null"));
+  } catch (error) {
+    return normalizeAdminPermissions(null);
+  }
+}
+
+function normalizeAdminPermissions(permissions, role = "admin") {
+  const defaults = { ...(ADMIN_DEFAULT_PERMISSIONS[role] || ADMIN_DEFAULT_PERMISSIONS.driver) };
+  if (!permissions || typeof permissions !== "object") {
+    return defaults;
+  }
+  for (const key of ADMIN_PERMISSION_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(permissions, key)) {
+      defaults[key] = Boolean(permissions[key]);
+    }
+  }
+  return defaults;
+}
+
+function applyAdminPermissions(permissions) {
+  adminState.permissions = normalizeAdminPermissions(permissions);
+  localStorage.setItem("delivery_permissions", JSON.stringify(adminState.permissions));
+  for (const button of adminEls.tabs) {
+    button.hidden = !hasAdminPermission(button.dataset.permission);
+  }
+}
+
+function hasAdminPermission(permission) {
+  return Boolean(adminState.permissions?.[permission]);
+}
+
+function isAdminViewAllowed(view) {
+  return Boolean(view && hasAdminPermission(ADMIN_VIEW_PERMISSIONS[view]));
+}
+
+function firstAllowedAdminView() {
+  return Object.keys(ADMIN_VIEW_PERMISSIONS).find((view) => isAdminViewAllowed(view)) || "";
+}
+
+async function setView(view) {
+  if (!isAdminViewAllowed(view)) {
+    view = firstAllowedAdminView();
+  }
+  if (!view) {
+    adminState.view = "";
+    for (const button of adminEls.tabs) {
+      button.classList.remove("active");
+    }
+    for (const section of Object.values(adminEls.views)) {
+      section.hidden = true;
+    }
+    setAdminMessage("此帳號尚未啟用任何管理功能", true);
+    return;
+  }
   adminState.view = view;
   for (const button of adminEls.tabs) {
     button.classList.toggle("active", button.dataset.view === view);
@@ -204,13 +302,18 @@ function setView(view) {
     section.hidden = name !== view;
   }
   if (view === "deleted") {
-    loadDeliveries(true);
+    await loadOptions(true);
+    await loadDeliveries(true);
+  }
+  if (view === "deliveries") {
+    await loadOptions(false);
+    await loadDeliveries(false);
   }
   if (view === "users") {
-    loadUsers();
+    await loadUsers();
   }
   if (view === "archive") {
-    loadArchives();
+    await loadArchives();
   }
 }
 
@@ -690,6 +793,7 @@ async function saveUser() {
         role: adminEls.userRole.value,
         password: adminEls.userPassword.value,
         active: adminEls.userActive.checked,
+        permissions: readUserPermissionControls(),
       },
     });
     adminEls.userPassword.value = "";
@@ -721,6 +825,27 @@ function fillUserForm(user) {
   adminEls.userRole.value = user.role;
   adminEls.userPassword.value = "";
   adminEls.userActive.checked = user.active;
+  setUserPermissionControls(user.permissions, user.role);
+}
+
+function readUserPermissionControls() {
+  const permissions = {};
+  for (const key of ADMIN_PERMISSION_KEYS) {
+    const selected = document.querySelector(`input[name="permission-${key}"]:checked`);
+    permissions[key] = selected ? selected.value === "enabled" : false;
+  }
+  return permissions;
+}
+
+function setUserPermissionControls(permissions, role = adminEls.userRole.value) {
+  const normalized = normalizeAdminPermissions(permissions, role);
+  for (const key of ADMIN_PERMISSION_KEYS) {
+    const value = normalized[key] ? "enabled" : "disabled";
+    const input = document.querySelector(`input[name="permission-${key}"][value="${value}"]`);
+    if (input) {
+      input.checked = true;
+    }
+  }
 }
 
 function openAdminPhoto(delivery) {

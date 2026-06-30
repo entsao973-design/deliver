@@ -346,11 +346,66 @@
   min-height: 22px;
 }
 
+.user-management-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+
+.user-account-panel,
+.user-permission-panel {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.user-account-panel .admin-list {
+  max-height: none;
+}
+
 .user-form {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   align-items: end;
+}
+
+.user-permission-list {
+  display: grid;
+  gap: 8px;
+}
+
+.permission-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.permission-row > span {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.permission-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #000000;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.permission-row input {
+  width: 16px;
+  min-height: 16px;
 }
 
 .user-active {
@@ -367,6 +422,7 @@
 @media (max-width: 760px) {
   .admin-tabs,
   .filter-grid,
+  .user-management-grid,
   .user-form,
   .admin-card:not(.delivery-row) {
     grid-template-columns: 1fr;

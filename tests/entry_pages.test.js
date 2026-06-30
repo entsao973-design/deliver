@@ -458,6 +458,50 @@ test("admin delivery status highlights normal green and abnormal red", () => {
   assert.match(css, /\.admin-card\.delivery-row \.admin-status\.status-abnormal\s*\{[\s\S]*color:\s*var\(--danger\);[\s\S]*font-weight:\s*800;/);
 });
 
+test("admin user management has account and permission assignment panels", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(html, /<div class="user-management-grid">[\s\S]*<section class="admin-panel user-account-panel">[\s\S]*<h2>帳號密碼管理<\/h2>[\s\S]*<section id="userList" class="admin-list"><\/section>[\s\S]*<section class="admin-panel user-permission-panel">[\s\S]*<h2>權限指派<\/h2>/);
+  for (const [key, label] of [
+    ["deliveries", "配送狀態"],
+    ["deleted", "刪除區"],
+    ["upload", "匯入 Excel"],
+    ["archive", "封存照片"],
+    ["users", "帳號管理"],
+    ["driver", "物流士配送作業"],
+  ]) {
+    assert.match(html, new RegExp(`data-permission-row="${key}"[\\s\\S]*${label}[\\s\\S]*name="permission-${key}"[\\s\\S]*value="enabled"[\\s\\S]*啟用[\\s\\S]*name="permission-${key}"[\\s\\S]*value="disabled"[\\s\\S]*禁用`));
+  }
+  assert.match(css, /\.user-management-grid\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
+  assert.match(css, /\.permission-row\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto;/);
+  assert.match(adminJs, /userPermissionInputs:\s*document\.querySelectorAll\("\[data-user-permission\]"\)/);
+  assert.match(adminJs, /function readUserPermissionControls\(\) \{/);
+  assert.match(adminJs, /function setUserPermissionControls\(permissions, role = adminEls\.userRole\.value\) \{/);
+  assert.match(adminJs, /permissions:\s*readUserPermissionControls\(\),/);
+  assert.match(adminJs, /setUserPermissionControls\(user\.permissions, user\.role\);/);
+});
+
+test("admin menu only shows permissions enabled for the signed-in user", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(html, /data-view="deliveries" data-permission="deliveries"[^>]*>配送狀態<\/button>/);
+  assert.match(html, /data-view="deleted" data-permission="deleted"[^>]*>刪除區<\/button>/);
+  assert.match(html, /data-view="upload" data-permission="upload"[^>]*>匯入 Excel<\/button>/);
+  assert.match(html, /data-view="archive" data-permission="archive"[^>]*>封存照片<\/button>/);
+  assert.match(html, /data-view="users" data-permission="users"[^>]*>帳號管理<\/button>/);
+  assert.match(adminJs, /permissions:\s*readStoredPermissions\(\)/);
+  assert.match(adminJs, /localStorage\.setItem\("delivery_permissions", JSON\.stringify\(adminState\.permissions\)\);/);
+  assert.match(adminJs, /localStorage\.removeItem\("delivery_permissions"\);/);
+  assert.match(adminJs, /function applyAdminPermissions\(permissions\) \{/);
+  assert.match(adminJs, /button\.hidden = !hasAdminPermission\(button\.dataset\.permission\);/);
+  assert.match(adminJs, /function firstAllowedAdminView\(\) \{/);
+  assert.match(adminJs, /if \(!isAdminViewAllowed\(view\)\) \{/);
+  assert.match(adminJs, /setAdminMessage\("此帳號尚未啟用任何管理功能", true\);/);
+});
+
 test("admin list controls stay sticky above scrolling lists", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");

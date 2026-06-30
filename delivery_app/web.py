@@ -199,10 +199,20 @@ class DeliveryServer:
                 if not ok or not user:
                     self._json_error(HTTPStatus.UNAUTHORIZED, message)
                     return
+                permissions = user.get("permissions", {})
                 if user["role"] == "admin":
                     token = secrets.token_urlsafe(32)
-                    app.sessions[token] = {"username": username, "role": "admin", "vehicle_no": None}
-                    self._send_json({"token": token, "role": "admin", "user": user})
+                    app.sessions[token] = {
+                        "username": username,
+                        "role": "admin",
+                        "vehicle_no": None,
+                        "permissions": permissions,
+                    }
+                    self._send_json({"token": token, "role": "admin", "user": user, "permissions": permissions})
+                    return
+
+                if not permissions.get("driver", False):
+                    self._json_error(HTTPStatus.FORBIDDEN, "此帳號未啟用物流士配送作業")
                     return
 
                 if not vehicle_no:
@@ -217,13 +227,19 @@ class DeliveryServer:
                     return
 
                 token = secrets.token_urlsafe(32)
-                app.sessions[token] = {"username": username, "role": "driver", "vehicle_no": vehicle_no}
+                app.sessions[token] = {
+                    "username": username,
+                    "role": "driver",
+                    "vehicle_no": vehicle_no,
+                    "permissions": permissions,
+                }
                 deliveries = app.repo.list_for_vehicle(vehicle_no, include_delivered=False, delivery_date=selected_date)
                 counts = app.repo.counts_for_vehicle(vehicle_no, selected_date)
                 self._send_json({
                     "token": token,
                     "role": "driver",
                     "user": user,
+                    "permissions": permissions,
                     "profile": meta,
                     "dates": dates,
                     "selected_date": selected_date,
@@ -280,7 +296,7 @@ class DeliveryServer:
 
             def _handle_admin_photo_save(self, delivery_id: str) -> None:
                 body = self._read_json(max_bytes=16 * 1024 * 1024)
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "deliveries"):
                     return
 
                 try:
@@ -348,7 +364,7 @@ class DeliveryServer:
                     write_import_log("read_json_error", status=exc.status.value, message=exc.message)
                     raise
                 write_import_log("json_loaded", keys=",".join(sorted(body.keys())))
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "upload"):
                     write_import_log("auth_failed")
                     return
 
@@ -415,9 +431,10 @@ class DeliveryServer:
                 })
 
             def _handle_admin_deliveries(self, parsed) -> None:
-                if not self._admin_from_request(parsed):
-                    return
                 query = parse_qs(parsed.query)
+                permission = "deleted" if query.get("deleted", ["0"])[0] == "1" else "deliveries"
+                if not self._admin_with_permission_from_request(parsed, permission):
+                    return
                 deliveries = app.repo.list_admin_deliveries(
                     delivery_date=query.get("date", [""])[0] or None,
                     start_date=query.get("start_date", [""])[0] or None,
@@ -429,9 +446,10 @@ class DeliveryServer:
                 self._send_json({"deliveries": deliveries})
 
             def _handle_admin_options(self, parsed) -> None:
-                if not self._admin_from_request(parsed):
-                    return
                 query = parse_qs(parsed.query)
+                permission = "deleted" if query.get("deleted", ["0"])[0] == "1" else "deliveries"
+                if not self._admin_with_permission_from_request(parsed, permission):
+                    return
                 self._send_json(app.repo.filter_options(
                     start_date=query.get("start_date", [""])[0] or None,
                     end_date=query.get("end_date", [""])[0] or None,
@@ -440,7 +458,7 @@ class DeliveryServer:
 
             def _handle_admin_delete(self, delivery_id: str) -> None:
                 body = self._read_json()
-                session = self._admin_from_body(body)
+                session = self._admin_with_permission_from_body(body, "deliveries")
                 if not session:
                     return
                 try:
@@ -452,7 +470,7 @@ class DeliveryServer:
 
             def _handle_admin_bulk_delete(self) -> None:
                 body = self._read_json()
-                session = self._admin_from_body(body)
+                session = self._admin_with_permission_from_body(body, "deliveries")
                 if not session:
                     return
                 delivery_ids = body.get("delivery_ids", [])
@@ -464,7 +482,7 @@ class DeliveryServer:
 
             def _handle_admin_restore(self, delivery_id: str) -> None:
                 body = self._read_json()
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "deleted"):
                     return
                 try:
                     delivery = app.repo.restore_delivery(delivery_id)
@@ -478,7 +496,7 @@ class DeliveryServer:
 
             def _handle_admin_permanent_delete(self, delivery_id: str) -> None:
                 body = self._read_json()
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "deleted"):
                     return
                 try:
                     app.repo.permanently_delete_delivery(delivery_id)
@@ -492,7 +510,7 @@ class DeliveryServer:
 
             def _handle_admin_bulk_permanent_delete(self) -> None:
                 body = self._read_json()
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "deleted"):
                     return
                 delivery_ids = body.get("delivery_ids", [])
                 if not isinstance(delivery_ids, list):
@@ -507,7 +525,7 @@ class DeliveryServer:
 
             def _handle_admin_archive(self) -> None:
                 body = self._read_json()
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "archive"):
                     return
                 try:
                     archives = app.repo.archive_photos(str(body.get("delivery_date", "")))
@@ -517,7 +535,7 @@ class DeliveryServer:
                 self._send_json({"archives": archives})
 
             def _handle_admin_archives(self, parsed) -> None:
-                if not self._admin_from_request(parsed):
+                if not self._admin_with_permission_from_request(parsed, "archive"):
                     return
                 query = parse_qs(parsed.query)
                 try:
@@ -542,7 +560,7 @@ class DeliveryServer:
                 self._send_json({"ok": True, "summary": summary})
 
             def _handle_admin_archive_download(self, parsed, filename: str) -> None:
-                if not self._admin_from_request(parsed):
+                if not self._admin_with_permission_from_request(parsed, "archive"):
                     return
                 path = app.repo.archive_path_for(filename)
                 if not path:
@@ -558,13 +576,13 @@ class DeliveryServer:
                 self.wfile.write(content)
 
             def _handle_admin_users(self, parsed) -> None:
-                if not self._admin_from_request(parsed):
+                if not self._admin_with_permission_from_request(parsed, "users"):
                     return
                 self._send_json({"users": app.users.list_users()})
 
             def _handle_admin_user_save(self) -> None:
                 body = self._read_json()
-                if not self._admin_from_body(body):
+                if not self._admin_with_permission_from_body(body, "users"):
                     return
                 try:
                     user = app.users.upsert_user(
@@ -572,6 +590,7 @@ class DeliveryServer:
                         str(body.get("role", "")),
                         str(body.get("password", "")) or None,
                         bool(body.get("active", True)),
+                        body.get("permissions"),
                     )
                 except ValueError as exc:
                     self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
@@ -580,7 +599,7 @@ class DeliveryServer:
 
             def _handle_admin_user_delete(self) -> None:
                 body = self._read_json()
-                session = self._admin_from_body(body)
+                session = self._admin_with_permission_from_body(body, "users")
                 if not session:
                     return
                 username = str(body.get("username", "")).strip()
@@ -610,11 +629,31 @@ class DeliveryServer:
                 session = self._session_from_body(body)
                 return self._require_admin(session)
 
+            def _admin_with_permission_from_request(self, parsed, permission: str) -> dict | None:
+                session = self._session_from_request(parsed)
+                return self._require_admin_permission(session, permission)
+
+            def _admin_with_permission_from_body(self, body: dict, permission: str) -> dict | None:
+                session = self._session_from_body(body)
+                return self._require_admin_permission(session, permission)
+
             def _require_admin(self, session: dict | None) -> dict | None:
                 if not session:
                     return None
                 if session.get("role") != "admin":
                     self._json_error(HTTPStatus.FORBIDDEN, "需要管理人員權限")
+                    return None
+                return session
+
+            def _require_admin_permission(self, session: dict | None, permission: str) -> dict | None:
+                session = self._require_admin(session)
+                if not session:
+                    return None
+                permissions = session.get("permissions")
+                if permissions is None:
+                    return session
+                if not permissions.get(permission, False):
+                    self._json_error(HTTPStatus.FORBIDDEN, "此帳號未啟用此功能權限")
                     return None
                 return session
 
