@@ -482,6 +482,10 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(css, /\.user-form\s*\{[\s\S]*grid-template-columns:\s*minmax\(86px,\s*1fr\) minmax\(120px,\s*1\.2fr\) minmax\(82px,\s*0\.8fr\) minmax\(96px,\s*1fr\) minmax\(66px,\s*0\.6fr\) minmax\(90px,\s*0\.8fr\);[\s\S]*gap:\s*8px;[\s\S]*align-items:\s*stretch;/);
   assert.match(css, /\.user-form label,[\s\S]*\.user-form button,[\s\S]*\.permission-row,[\s\S]*\.user-account-panel \.admin-card\s*\{[\s\S]*height:\s*var\(--admin-user-row-height\);[\s\S]*min-height:\s*var\(--admin-user-row-height\);[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
   assert.match(css, /\.user-form label\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
+  const userFormLabelBlock = cssBlockAfter(css, ".user-form label {");
+  assert.doesNotMatch(userFormLabelBlock, /border:\s*1px/);
+  assert.doesNotMatch(userFormLabelBlock, /border-radius:/);
+  assert.doesNotMatch(userFormLabelBlock, /background:\s*#ffffff/);
   assert.match(css, /\.permission-row > span,[\s\S]*\.permission-row label,[\s\S]*\.user-account-panel \.admin-card h3,[\s\S]*\.user-account-panel \.admin-meta,[\s\S]*\.user-account-panel \.admin-actions button\s*\{[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
   assert.match(css, /\.user-account-panel \.user-account-line\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
   assert.match(css, /\.user-account-panel \.user-profile\s*\{[\s\S]*overflow:\s*hidden;[\s\S]*text-overflow:\s*ellipsis;[\s\S]*white-space:\s*nowrap;/);
