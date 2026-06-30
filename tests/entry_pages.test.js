@@ -483,9 +483,13 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(css, /\.user-form label,[\s\S]*\.user-form button,[\s\S]*\.permission-row,[\s\S]*\.user-account-panel \.admin-card\s*\{[\s\S]*height:\s*var\(--admin-user-row-height\);[\s\S]*min-height:\s*var\(--admin-user-row-height\);[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
   assert.match(css, /\.user-form label\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
   assert.match(css, /\.permission-row > span,[\s\S]*\.permission-row label,[\s\S]*\.user-account-panel \.admin-card h3,[\s\S]*\.user-account-panel \.admin-meta,[\s\S]*\.user-account-panel \.admin-actions button\s*\{[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
+  assert.match(css, /\.user-account-panel \.user-account-line\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[\s\S]*align-items:\s*center;/);
+  assert.match(css, /\.user-account-panel \.user-profile\s*\{[\s\S]*overflow:\s*hidden;[\s\S]*text-overflow:\s*ellipsis;[\s\S]*white-space:\s*nowrap;/);
   assert.match(adminJs, /userPermissionInputs:\s*document\.querySelectorAll\("\[data-user-permission\]"\)/);
   assert.match(adminJs, /userDisplayName:\s*document\.querySelector\("#userDisplayName"\)/);
   assert.match(adminJs, /display_name:\s*adminEls\.userDisplayName\.value\.trim\(\),/);
+  assert.match(adminJs, /<div class="user-account-line">\s*<h3><\/h3>\s*<div class="admin-meta user-profile"><\/div>\s*<\/div>/);
+  assert.match(adminJs, /card\.querySelector\("\.user-profile"\)\.textContent = \[/);
   assert.match(adminJs, /adminEls\.userDisplayName\.value = user\.display_name \|\| "";/);
   assert.match(adminJs, /user\.display_name \? `姓名 \$\{user\.display_name\}` : ""/);
   assert.match(adminJs, /function readUserPermissionControls\(\) \{/);

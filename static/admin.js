@@ -762,15 +762,15 @@ async function loadUsers() {
     const card = document.createElement("article");
     card.className = "admin-card";
     card.innerHTML = `
-      <div>
+      <div class="user-account-line">
         <h3></h3>
-        <div class="admin-meta"></div>
+        <div class="admin-meta user-profile"></div>
       </div>
       <div class="admin-meta user-state"></div>
       <div class="admin-actions"></div>
     `;
     card.querySelector("h3").textContent = user.username;
-    card.querySelector(".admin-meta").textContent = [
+    card.querySelector(".user-profile").textContent = [
       user.display_name ? `姓名 ${user.display_name}` : "",
       user.role === "admin" ? "管理人員" : "司機",
     ].filter(Boolean).join(" | ");
