@@ -21,7 +21,7 @@ test("driver entry uses driver route and split vehicle fields", () => {
   const workerJs = fs.readFileSync(path.join(staticRoot, "service-worker.js"), "utf8");
   const webPy = fs.readFileSync(path.join(root, "delivery_app", "web.py"), "utf8");
 
-  assert.equal(manifest.start_url, "/driver");
+  assert.equal(manifest.start_url, "/");
   assert.match(workerJs, /"\/driver"/);
   assert.match(webPy, /parsed\.path in \{"\/", "\/driver"\}/);
   assert.match(html, /<script src="\/static\/home-redirect\.js"><\/script>/);

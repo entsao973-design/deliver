@@ -33,7 +33,7 @@ test("manifest has Android fullscreen PWA install fields", () => {
 
   assert.equal(manifest.name, "配送存證平台");
   assert.equal(manifest.short_name, "配送存證");
-  assert.equal(manifest.start_url, "/driver");
+  assert.equal(manifest.start_url, "/");
   assert.equal(manifest.scope, "/");
   assert.equal(manifest.display, "fullscreen");
   assert.deepEqual(manifest.display_override, ["fullscreen", "standalone"]);

@@ -3,7 +3,7 @@
   "name": "配送存證平台",
   "short_name": "配送存證",
   "description": "司機配送達交拍照與管理後台",
-  "start_url": "/driver",
+  "start_url": "/",
   "scope": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
