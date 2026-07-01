@@ -24,6 +24,7 @@ test("driver entry uses driver route and split vehicle fields", () => {
   assert.equal(manifest.start_url, "/driver");
   assert.match(workerJs, /"\/driver"/);
   assert.match(webPy, /parsed\.path in \{"\/", "\/driver"\}/);
+  assert.match(html, /<script src="\/static\/home-redirect\.js"><\/script>/);
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" \/>/);
   assert.match(html, /<title>配送存證平台<\/title>/);
   assert.match(html, /<h1>配送存證平台<\/h1>/);

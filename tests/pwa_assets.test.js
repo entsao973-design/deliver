@@ -16,6 +16,7 @@ test("PWA app version matches service worker cache and shell assets", () => {
 
   for (const asset of [
     "/static/app-version.json",
+    "/static/home-redirect.js",
     "/static/driver-api.js",
     "/static/smart-photo.js",
     "/static/driver-smart-delivery.js",
