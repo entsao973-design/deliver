@@ -114,7 +114,7 @@ els.loginForm.addEventListener("submit", async (event) => {
     localStorage.setItem("delivery_token", state.token);
     localStorage.setItem("delivery_role", result.role);
     localStorage.setItem("delivery_permissions", JSON.stringify(result.permissions || {}));
-    saveRememberedLogin(payload.username, payload.vehicle_no);
+    saveRememberedLogin(payload.username, payload.password, payload.vehicle_no);
 
     if (result.role === "admin") {
       window.location.href = "/admin";
@@ -713,18 +713,20 @@ function loadRememberedLogin() {
     return;
   }
   els.username.value = state.rememberedLogin.username || "";
+  els.password.value = state.rememberedLogin.password || "";
   els.vehicleNo.value = state.rememberedLogin.vehicle_no || "";
   syncVehicleSelect();
   els.rememberLogin.checked = true;
 }
 
-function saveRememberedLogin(username, vehicleNo) {
+function saveRememberedLogin(username, password, vehicleNo) {
   if (!els.rememberLogin.checked) {
     localStorage.removeItem("delivery_remembered_login");
     return;
   }
   localStorage.setItem("delivery_remembered_login", JSON.stringify({
     username,
+    password,
     vehicle_no: vehicleNo,
   }));
 }

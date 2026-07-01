@@ -52,6 +52,18 @@ test("driver login password field has a show-hide toggle", () => {
   assert.match(appJs, /icon\.removeAttribute\("hidden"\);/);
 });
 
+test("driver remembered login includes password and vehicle", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+
+  assert.match(html, /<input id="rememberLogin" type="checkbox" \/>\s*<span>記住帳號密碼與車號<\/span>/);
+  assert.doesNotMatch(html, /記住帳號與車號/);
+  assert.match(appJs, /saveRememberedLogin\(payload\.username, payload\.password, payload\.vehicle_no\);/);
+  assert.match(appJs, /els\.password\.value = state\.rememberedLogin\.password \|\| "";/);
+  assert.match(appJs, /function saveRememberedLogin\(username, password, vehicleNo\) \{/);
+  assert.match(appJs, /localStorage\.setItem\("delivery_remembered_login", JSON\.stringify\(\{[\s\S]*username,[\s\S]*password,[\s\S]*vehicle_no: vehicleNo,[\s\S]*\}\)\);/);
+});
+
 test("driver delivery controls stay fixed while the list scrolls", () => {
   const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
