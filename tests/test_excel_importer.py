@@ -629,27 +629,33 @@ class ImporterRulesTest(unittest.TestCase):
             root = Path(temp_dir)
             data_file = root / "deliveries.json"
             photo_root = root / "photos"
+            archive_root = root / "archives"
             selected_photo = photo_root / "20260610" / "Done" / "INV-selected.JPG"
             kept_photo = photo_root / "20260610" / "Done" / "INV-kept.JPG"
             selected_photo.parent.mkdir(parents=True)
             selected_photo.write_bytes(b"selected")
             kept_photo.write_bytes(b"kept")
+            archive_root.mkdir()
+            selected_archive = archive_root / "20260610_SelectedCo.zip"
+            kept_archive = archive_root / "20260610_KeptCo.zip"
+            selected_archive.write_bytes(b"selected zip")
+            kept_archive.write_bytes(b"kept zip")
             records = [
                 make_delivery_record("pending", "2026-06-10", "Open", "Driver"),
                 {**make_delivery_record("done", "2026-06-10", "Done", "Driver"), "status": "normal"},
                 {
-                    **make_delivery_record("selected", "2026-06-10", "Done", "Driver", "2026-06-11T10:00:00"),
+                    **make_delivery_record("selected", "2026-06-10", "SelectedCo", "Driver", "2026-06-11T10:00:00"),
                     "status": "normal",
                     "photo_path": str(selected_photo),
                 },
                 {
-                    **make_delivery_record("kept", "2026-06-10", "Done", "Driver", "2026-06-11T10:00:00"),
+                    **make_delivery_record("kept", "2026-06-10", "KeptCo", "Driver", "2026-06-11T10:00:00"),
                     "status": "normal",
                     "photo_path": str(kept_photo),
                 },
             ]
             data_file.write_text(json.dumps({"deliveries": records}, ensure_ascii=False), encoding="utf-8")
-            repo = DeliveryRepository(None, str(data_file), str(photo_root), str(root / "archives"))
+            repo = DeliveryRepository(None, str(data_file), str(photo_root), str(archive_root))
 
             delete_summary = repo.delete_deliveries(["pending", "done"], "admin")
             permanent_summary = repo.permanently_delete_deliveries(["selected"])
@@ -664,6 +670,33 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertIsNotNone(by_id["kept"]["deleted_at"])
             self.assertFalse(selected_photo.exists())
             self.assertTrue(kept_photo.exists())
+            self.assertFalse(selected_archive.exists())
+            self.assertTrue(kept_archive.exists())
+
+    def test_permanent_delete_delivery_removes_matching_archive_zip(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_file = root / "deliveries.json"
+            photo_root = root / "photos"
+            archive_root = root / "archives"
+            archive_root.mkdir()
+            selected_archive = archive_root / "20260610_SelectedCo.zip"
+            kept_archive = archive_root / "20260610_KeptCo.zip"
+            selected_archive.write_bytes(b"selected zip")
+            kept_archive.write_bytes(b"kept zip")
+            records = [
+                make_delivery_record("selected", "2026-06-10", "SelectedCo", "Driver", "2026-06-11T10:00:00"),
+                make_delivery_record("kept", "2026-06-10", "KeptCo", "Driver", "2026-06-11T10:00:00"),
+            ]
+            data_file.write_text(json.dumps({"deliveries": records}, ensure_ascii=False), encoding="utf-8")
+            repo = DeliveryRepository(None, str(data_file), str(photo_root), str(archive_root))
+
+            repo.permanently_delete_delivery("selected")
+
+            saved_ids = [item["id"] for item in json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]]
+            self.assertEqual(saved_ids, ["kept"])
+            self.assertFalse(selected_archive.exists())
+            self.assertTrue(kept_archive.exists())
 
 
 class UserStoreTest(unittest.TestCase):

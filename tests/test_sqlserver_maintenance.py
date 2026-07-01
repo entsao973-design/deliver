@@ -3,19 +3,27 @@ import threading
 import unittest
 from pathlib import Path
 
-from delivery_app.sqlserver_store import SqlServerRepository
+from delivery_app.sqlserver_store import DELIVERY_FIELDS, SqlServerRepository
 
 
 class FakeCursor:
-    def __init__(self, rowcount=0, error=None):
+    def __init__(self, rowcount=0, error=None, fetchone_rows=None, fetchall_rows=None):
         self.rowcount = rowcount
         self.error = error
         self.executions = []
+        self.fetchone_rows = list(fetchone_rows or [])
+        self.fetchall_rows = list(fetchall_rows or [])
 
     def execute(self, sql, *params):
         self.executions.append((sql, params))
         if self.error:
             raise self.error
+
+    def fetchone(self):
+        return self.fetchone_rows.pop(0) if self.fetchone_rows else None
+
+    def fetchall(self):
+        return self.fetchall_rows
 
 
 class FakeConnection:
@@ -104,6 +112,53 @@ class SqlServerMaintenanceTest(unittest.TestCase):
 
             self.assertEqual(connection_calls, [])
 
+    def test_permanent_delete_delivery_removes_matching_archive_zip(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            row = make_sql_delivery_row(
+                record_id="selected",
+                delivery_date="2026-06-10",
+                company="SelectedCo",
+                deleted_at="2026-06-11T10:00:00",
+            )
+            cursor = FakeCursor(fetchone_rows=[row])
+            connection = FakeConnection(cursor)
+            repo = make_repository(root, connection)
+            selected_archive = repo.archive_root / "20260610_SelectedCo.zip"
+            kept_archive = repo.archive_root / "20260610_KeptCo.zip"
+            selected_archive.write_bytes(b"selected zip")
+            kept_archive.write_bytes(b"kept zip")
+
+            repo.permanently_delete_delivery("selected")
+
+            self.assertTrue(connection.committed)
+            self.assertFalse(selected_archive.exists())
+            self.assertTrue(kept_archive.exists())
+
+    def test_permanently_delete_deliveries_removes_matching_archive_zips(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            selected_row = make_sql_delivery_row(
+                record_id="selected",
+                delivery_date="2026-06-10",
+                company="SelectedCo",
+                deleted_at="2026-06-11T10:00:00",
+            )
+            cursor = FakeCursor(rowcount=1, fetchall_rows=[selected_row])
+            connection = FakeConnection(cursor)
+            repo = make_repository(root, connection)
+            selected_archive = repo.archive_root / "20260610_SelectedCo.zip"
+            kept_archive = repo.archive_root / "20260610_KeptCo.zip"
+            selected_archive.write_bytes(b"selected zip")
+            kept_archive.write_bytes(b"kept zip")
+
+            summary = repo.permanently_delete_deliveries(["selected"])
+
+            self.assertEqual(summary, {"deleted_records": 1})
+            self.assertTrue(connection.committed)
+            self.assertFalse(selected_archive.exists())
+            self.assertTrue(kept_archive.exists())
+
 
 def make_repository(root, connection, connection_calls=None):
     repo = object.__new__(SqlServerRepository)
@@ -120,6 +175,44 @@ def make_repository(root, connection, connection_calls=None):
 
     repo._connect = connect
     return repo
+
+
+def make_sql_delivery_row(
+    record_id: str,
+    delivery_date: str,
+    company: str,
+    deleted_at: str | None,
+):
+    record = {
+        "id": record_id,
+        "sheet": "Sheet1",
+        "row": 1,
+        "seq": 1,
+        "vehicle_no": "TEST-001",
+        "vehicle_no_normalized": "TEST-001",
+        "driver": "Driver",
+        "delivery_date": delivery_date,
+        "date_folder": delivery_date.replace("-", ""),
+        "customer": f"Customer {record_id}",
+        "address": "Address",
+        "normalized_address": "Address",
+        "geocode_lat": None,
+        "geocode_lng": None,
+        "geocode_status": "empty",
+        "geocode_provider": None,
+        "geocode_place_id": None,
+        "geocode_updated_at": None,
+        "geocode_error": None,
+        "company": company,
+        "invoice_no": f"INV-{record_id}",
+        "status": "normal",
+        "photo_path": None,
+        "photo_updated_at": None,
+        "updated_at": None,
+        "deleted_at": deleted_at,
+        "deleted_by": "admin" if deleted_at else None,
+    }
+    return tuple(record[field] for field in DELIVERY_FIELDS)
 
 
 if __name__ == "__main__":

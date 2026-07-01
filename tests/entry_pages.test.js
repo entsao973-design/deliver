@@ -301,6 +301,8 @@ test("admin filtered delivery rows support bulk delete and filtered permanent de
   assert.match(adminJs, /async function bulkPermanentDeleteFilteredDeliveries\(\) \{/);
   assert.match(adminJs, /adminApi\("\/api\/admin\/deliveries\/bulk-permanent-delete",[\s\S]*delivery_ids: deliveryIds,/);
   assert.match(adminJs, /確定永久清除目前篩選出的 \$\{deliveryIds\.length\} 筆刪除區配送紀錄嗎？/);
+  assert.match(adminJs, /- 對應已封存 ZIP/);
+  assert.match(adminJs, /確定永久刪除 \$\{delivery\.invoice_no\}？[\s\S]*- 對應已封存 ZIP/);
   assert.match(webPy, /parsed\.path == "\/api\/admin\/deliveries\/bulk-delete"/);
   assert.match(webPy, /parsed\.path == "\/api\/admin\/deliveries\/bulk-permanent-delete"/);
   assert.match(webPy, /def _handle_admin_bulk_delete\(self\)/);

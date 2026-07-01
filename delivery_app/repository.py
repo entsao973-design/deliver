@@ -499,6 +499,7 @@ class DeliveryRepository:
             ]
             self._write_data_unlocked(data)
             self._remove_old_photo_unlocked(photo_path, "")
+            delete_archives_for_records(self.archive_root, [record])
 
     def permanently_delete_deliveries(self, delivery_ids: list[str]) -> dict[str, int]:
         target_ids = normalize_delivery_ids(delivery_ids)
@@ -527,6 +528,7 @@ class DeliveryRepository:
                 self._write_data_unlocked(data)
             for photo_path in photo_paths:
                 self._remove_old_photo_unlocked(photo_path, "")
+            delete_archives_for_records(self.archive_root, records)
         return {"deleted_records": deleted_records}
 
     def restore_delivery(self, delivery_id: str) -> dict[str, Any]:
@@ -787,6 +789,26 @@ def date_to_folder(value: str) -> str:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
         return normalized.replace("-", "")
     raise ValueError("日期格式不正確")
+
+
+def delete_archives_for_records(archive_root: Path, records: list[dict[str, Any]]) -> int:
+    archive_paths = set()
+    for record in records:
+        date_folder = str(record.get("date_folder") or date_to_folder(str(record.get("delivery_date", ""))))
+        company = str(record.get("company") or "")
+        if not date_folder or not company:
+            continue
+        archive_paths.add(archive_root / (safe_path_part(f"{date_folder}_{company}") + ".zip"))
+
+    deleted_archives = 0
+    for path in archive_paths:
+        try:
+            if path.is_file():
+                path.unlink()
+                deleted_archives += 1
+        except OSError:
+            continue
+    return deleted_archives
 
 
 def list_archive_files(archive_root: Path, delivery_date: str) -> list[dict[str, Any]]:

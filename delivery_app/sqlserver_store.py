@@ -36,6 +36,7 @@ from .repository import (
     STATUS_LABELS,
     cleanup_history_files,
     date_to_folder,
+    delete_archives_for_records,
     decode_image_data_url,
     list_archive_files,
     list_photo_files,
@@ -965,6 +966,7 @@ WHERE deleted_at IS NULL
                     cursor.execute("DELETE FROM dbo.deliveries WHERE id = ?", delivery_id)
                     connection.commit()
                     self._remove_old_photo(photo_path, "")
+                    delete_archives_for_records(self.archive_root, [record])
                 except Exception:
                     connection.rollback()
                     raise
@@ -996,6 +998,7 @@ WHERE deleted_at IS NULL
                     connection.commit()
                     for photo_path in photo_paths:
                         self._remove_old_photo(photo_path, "")
+                    delete_archives_for_records(self.archive_root, records)
                     return {"deleted_records": deleted_records}
                 except Exception:
                     connection.rollback()

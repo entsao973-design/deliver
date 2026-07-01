@@ -715,6 +715,7 @@ async function bulkPermanentDeleteFilteredDeliveries() {
   if (!confirm(`確定永久清除目前篩選出的 ${deliveryIds.length} 筆刪除區配送紀錄嗎？
 - 篩選出的配送紀錄
 - 對應已達交照片
+- 對應已封存 ZIP
 
 此清除無法恢復，請務必確定後執行。`)) {
     return;
@@ -739,7 +740,12 @@ async function bulkPermanentDeleteFilteredDeliveries() {
 }
 
 async function permanentlyDelete(delivery, button) {
-  if (!confirm(`確定永久刪除 ${delivery.invoice_no}？此動作無法復原。`)) {
+  if (!confirm(`確定永久刪除 ${delivery.invoice_no}？
+- 此配送紀錄
+- 對應已達交照片
+- 對應已封存 ZIP
+
+此動作無法復原。`)) {
     return;
   }
   await AdminOperationState.runWithButtonLock(button, "永久刪除中...", async () => {
