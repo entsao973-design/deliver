@@ -83,11 +83,11 @@ class DeliveryRepository:
             write_import_log("repo_lock_acquired", backend="json")
             data = self._read_data_unlocked()
             deliveries = data.setdefault("deliveries", [])
-            by_invoice = {
-                record.get("invoice_no"): record
-                for record in deliveries
-                if record.get("invoice_no")
-            }
+            by_invoice: dict[str, list[dict[str, Any]]] = {}
+            for record in deliveries:
+                invoice_no = record.get("invoice_no")
+                if invoice_no:
+                    by_invoice.setdefault(invoice_no, []).append(record)
 
             for index, imported_record in enumerate(records, start=1):
                 if index == 1 or index % 100 == 0 or index == len(records):
@@ -99,7 +99,18 @@ class DeliveryRepository:
                         invoice=imported_record.get("invoice_no", ""),
                     )
                 invoice_no = imported_record.get("invoice_no")
-                existing = by_invoice.get(invoice_no) if invoice_no else None
+                invoice_records = by_invoice.get(invoice_no, []) if invoice_no else []
+                imported_date = imported_record.get("delivery_date")
+                existing = next(
+                    (
+                        record
+                        for record in invoice_records
+                        if record.get("delivery_date") == imported_date
+                    ),
+                    None,
+                )
+                if existing is None:
+                    existing = next((record for record in invoice_records if not record.get("status")), None)
                 if existing:
                     if existing.get("status"):
                         summary["locked_delivered"] += 1
@@ -127,7 +138,7 @@ class DeliveryRepository:
                 else:
                     deliveries.append(imported_record)
                     if invoice_no:
-                        by_invoice[invoice_no] = imported_record
+                        by_invoice.setdefault(invoice_no, []).append(imported_record)
                     summary["inserted"] += 1
 
             data["source_excel"] = str(excel_path)

@@ -268,14 +268,23 @@ END
             )
             cursor.execute(
                 """
-IF NOT EXISTS (
+IF EXISTS (
     SELECT 1
     FROM sys.indexes
     WHERE name = N'UX_deliveries_invoice_no'
       AND object_id = OBJECT_ID(N'dbo.deliveries')
 )
 BEGIN
-    CREATE UNIQUE INDEX UX_deliveries_invoice_no ON dbo.deliveries(invoice_no);
+    DROP INDEX UX_deliveries_invoice_no ON dbo.deliveries;
+END
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'UX_deliveries_invoice_no_delivery_date'
+      AND object_id = OBJECT_ID(N'dbo.deliveries')
+)
+BEGIN
+    CREATE UNIQUE INDEX UX_deliveries_invoice_no_delivery_date ON dbo.deliveries(invoice_no, delivery_date);
 END
 """
             )
@@ -452,7 +461,13 @@ class SqlServerRepository(SqlServerBase):
                                 invoice=imported_record.get("invoice_no", ""),
                             )
                         invoice_no = imported_record.get("invoice_no")
-                        existing = self._fetch_by_invoice(cursor, invoice_no) if invoice_no else None
+                        existing = (
+                            self._fetch_by_invoice_date(cursor, invoice_no, imported_record.get("delivery_date"))
+                            if invoice_no
+                            else None
+                        )
+                        if existing is None and invoice_no:
+                            existing = self._fetch_pending_by_invoice(cursor, invoice_no)
                         if existing:
                             if existing.get("status"):
                                 summary["locked_delivered"] += 1
@@ -466,7 +481,7 @@ class SqlServerRepository(SqlServerBase):
                                 summary["skipped"] += 1
                                 continue
 
-                            self._update_imported_delivery(cursor, imported_record)
+                            self._update_imported_delivery(cursor, imported_record, existing["id"])
                             summary["updated"] += 1
                         else:
                             self._insert_delivery(cursor, imported_record)
@@ -1071,6 +1086,29 @@ WHERE id = ?
         row = cursor.fetchone()
         return row_to_delivery(row) if row else None
 
+    def _fetch_by_invoice_date(self, cursor, invoice_no: str, delivery_date: str | None) -> dict[str, Any] | None:
+        cursor.execute(
+            f"SELECT {DELIVERY_SELECT} FROM dbo.deliveries WHERE invoice_no = ? AND delivery_date = ?",
+            invoice_no,
+            delivery_date,
+        )
+        row = cursor.fetchone()
+        return row_to_delivery(row) if row else None
+
+    def _fetch_pending_by_invoice(self, cursor, invoice_no: str) -> dict[str, Any] | None:
+        cursor.execute(
+            f"""
+SELECT TOP (1) {DELIVERY_SELECT}
+FROM dbo.deliveries
+WHERE invoice_no = ?
+  AND status IS NULL
+ORDER BY delivery_date DESC, created_at DESC
+""",
+            invoice_no,
+        )
+        row = cursor.fetchone()
+        return row_to_delivery(row) if row else None
+
     def _fetch_geocode_cache(self, cursor, normalized_address: str) -> GeocodeResult | None:
         cursor.execute(
             """
@@ -1266,7 +1304,7 @@ WHERE id = ?
             current_id,
         )
 
-    def _update_imported_delivery(self, cursor, record: dict[str, Any]) -> None:
+    def _update_imported_delivery(self, cursor, record: dict[str, Any], current_id: str) -> None:
         record = normalize_delivery_record(record)
         cursor.execute(
             """
@@ -1292,7 +1330,7 @@ SET id = ?,
     geocode_error = ?,
     company = ?,
     updated_at = ?
-WHERE invoice_no = ?
+WHERE id = ?
   AND status IS NULL
 """,
             record["id"],
@@ -1316,7 +1354,7 @@ WHERE invoice_no = ?
             record.get("geocode_error"),
             record.get("company") or "",
             datetime.now().replace(microsecond=0),
-            record.get("invoice_no") or "",
+            current_id,
         )
 
     def _save_photo(self, record: dict[str, Any], status: str, photo_data_url: str) -> Path:

@@ -146,6 +146,38 @@ class ExcelImporterTest(unittest.TestCase):
 
 
 class ImporterRulesTest(unittest.TestCase):
+    def test_reimport_inserts_same_invoice_on_new_date_after_delivery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_delivery_workbook(excel_path)
+            DeliveryRepository(str(excel_path), str(data_file), str(Path(temp_dir) / "photos"))
+
+            data = json.loads(data_file.read_text(encoding="utf-8"))
+            first = next(record for record in data["deliveries"] if record["invoice_no"] == "INV-MERGED-1")
+            first["status"] = "normal"
+            first["photo_path"] = "photos/20260611/INV-MERGED-1.JPG"
+            first["photo_updated_at"] = "2026-06-11T10:00:00"
+            data_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+            workbook = openpyxl.load_workbook(excel_path)
+            workbook.active["H3"] = "配送日期:2026/6/12"
+            workbook.save(excel_path)
+            workbook.close()
+
+            repo = DeliveryRepository(None, str(data_file), str(Path(temp_dir) / "photos"))
+            summary = repo.import_excel_file(excel_path)
+            refreshed = json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]
+            matching = [record for record in refreshed if record["invoice_no"] == "INV-MERGED-1"]
+
+            self.assertEqual(summary["inserted"], 1)
+            self.assertEqual(len(matching), 2)
+            self.assertEqual({record["delivery_date"] for record in matching}, {"2026-06-11", "2026-06-12"})
+            delivered = next(record for record in matching if record["delivery_date"] == "2026-06-11")
+            new_delivery = next(record for record in matching if record["delivery_date"] == "2026-06-12")
+            self.assertEqual(delivered["status"], "normal")
+            self.assertIsNone(new_delivery["status"])
+
     def test_repository_allows_missing_default_excel(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             data_file = Path(temp_dir) / "deliveries.json"

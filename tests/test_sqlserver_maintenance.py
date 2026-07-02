@@ -2,8 +2,9 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from delivery_app.sqlserver_store import DELIVERY_FIELDS, SqlServerRepository
+from delivery_app.sqlserver_store import DELIVERY_FIELDS, SqlServerBase, SqlServerRepository
 
 
 class FakeCursor:
@@ -24,6 +25,27 @@ class FakeCursor:
 
     def fetchall(self):
         return self.fetchall_rows
+
+
+class ReusedInvoiceCursor(FakeCursor):
+    def __init__(self, existing_row):
+        super().__init__()
+        self.existing_row = existing_row
+        self.last_sql = ""
+
+    def execute(self, sql, *params):
+        super().execute(sql, *params)
+        self.last_sql = sql
+
+    def fetchone(self):
+        normalized_sql = " ".join(self.last_sql.split())
+        if "WHERE invoice_no = ? AND delivery_date = ?" in normalized_sql:
+            return None
+        if "AND status IS NULL" in normalized_sql:
+            return None
+        if "WHERE invoice_no = ?" in normalized_sql:
+            return self.existing_row
+        return None
 
 
 class FakeConnection:
@@ -49,6 +71,49 @@ class FakeConnection:
 
 
 class SqlServerMaintenanceTest(unittest.TestCase):
+    def test_schema_uses_invoice_and_delivery_date_unique_index(self):
+        cursor = FakeCursor()
+        connection = FakeConnection(cursor)
+        base = object.__new__(SqlServerBase)
+        base._connect = lambda: connection
+
+        SqlServerBase._ensure_schema(base)
+
+        combined_sql = "\n".join(sql for sql, _params in cursor.executions)
+        self.assertIn("DROP INDEX UX_deliveries_invoice_no", combined_sql)
+        self.assertIn("UX_deliveries_invoice_no_delivery_date", combined_sql)
+        self.assertIn("CREATE UNIQUE INDEX UX_deliveries_invoice_no_delivery_date", combined_sql)
+        self.assertIn("invoice_no, delivery_date", combined_sql)
+
+    def test_import_inserts_same_invoice_on_new_date_when_existing_delivery_is_locked(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            existing_row = make_sql_delivery_row(
+                record_id="REUSE",
+                delivery_date="2026-06-11",
+                company="ReusedCo",
+                deleted_at=None,
+            )
+            cursor = ReusedInvoiceCursor(existing_row)
+            connection = FakeConnection(cursor)
+            repo = make_repository(root, connection)
+            imported_record = make_imported_delivery_record(
+                record_id="REUSE",
+                delivery_date="2026-06-12",
+                company="ReusedCo",
+            )
+
+            with patch(
+                "delivery_app.sqlserver_store.import_deliveries",
+                return_value={"deliveries": [imported_record]},
+            ):
+                summary = repo.import_excel_file(root / "new-date.xlsx")
+
+            executed_sql = "\n".join(sql for sql, _params in cursor.executions)
+            self.assertEqual(summary["inserted"], 1)
+            self.assertEqual(summary["locked_delivered"], 0)
+            self.assertIn("INSERT INTO dbo.deliveries", executed_sql)
+
     def test_cleanup_delivery_history_deletes_inclusive_range_and_commits(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -213,6 +278,42 @@ def make_sql_delivery_row(
         "deleted_by": "admin" if deleted_at else None,
     }
     return tuple(record[field] for field in DELIVERY_FIELDS)
+
+
+def make_imported_delivery_record(
+    record_id: str,
+    delivery_date: str,
+    company: str,
+):
+    return {
+        "id": f"{delivery_date}-{record_id}",
+        "sheet": "Sheet1",
+        "row": 1,
+        "seq": 1,
+        "vehicle_no": "TEST-001",
+        "vehicle_no_normalized": "TEST-001",
+        "driver": "Driver",
+        "delivery_date": delivery_date,
+        "date_folder": delivery_date.replace("-", ""),
+        "customer": f"Customer {record_id}",
+        "address": "Address",
+        "normalized_address": "Address",
+        "geocode_lat": None,
+        "geocode_lng": None,
+        "geocode_status": "empty",
+        "geocode_provider": None,
+        "geocode_place_id": None,
+        "geocode_updated_at": None,
+        "geocode_error": None,
+        "company": company,
+        "invoice_no": f"INV-{record_id}",
+        "status": None,
+        "photo_path": None,
+        "photo_updated_at": None,
+        "updated_at": None,
+        "deleted_at": None,
+        "deleted_by": None,
+    }
 
 
 if __name__ == "__main__":
