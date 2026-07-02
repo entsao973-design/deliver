@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import threading
 from datetime import datetime, timedelta
@@ -79,6 +80,41 @@ class UserStore:
         with self._lock:
             users = self._read_unlocked().get("users", [])
             return [public_user(user) for user in sorted(users, key=lambda item: item["username"])]
+
+    def get_user(self, username: str) -> dict[str, Any]:
+        username = username.strip()
+        with self._lock:
+            user = self._find_unlocked(self._read_unlocked(), username)
+            if not user:
+                raise KeyError("找不到使用者")
+            return public_user(user)
+
+    def update_own_account(
+        self,
+        username: str,
+        display_name: str,
+        old_password: str = "",
+        new_password: str = "",
+        confirm_password: str = "",
+    ) -> dict[str, Any]:
+        username = username.strip()
+        with self._lock:
+            data = self._read_unlocked()
+            user = self._find_unlocked(data, username)
+            if not user:
+                raise KeyError("找不到使用者")
+
+            should_change_password = any([old_password, new_password, confirm_password])
+            if should_change_password:
+                validate_password_change(user, old_password, new_password, confirm_password)
+                user["password_hash"] = hash_password(new_password)
+                user["failed_attempts"] = 0
+                user["locked_until"] = None
+
+            user["display_name"] = str(display_name or "").strip()
+            user["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            self._write_unlocked(data)
+            return public_user(user)
 
     def upsert_user(
         self,
@@ -225,6 +261,26 @@ def verify_password(password: str, password_hash: str) -> bool:
         return hmac.compare_digest(actual, expected)
     except (ValueError, TypeError):
         return False
+
+
+def validate_password_change(
+    user: dict[str, Any],
+    old_password: str,
+    new_password: str,
+    confirm_password: str,
+) -> None:
+    if not old_password or not new_password or not confirm_password:
+        raise ValueError("請完整輸入舊密碼、新密碼與確認密碼")
+    if not verify_password(old_password, user.get("password_hash", "")):
+        raise ValueError("舊密碼不正確")
+    if new_password != confirm_password:
+        raise ValueError("新密碼與確認密碼不一致")
+    validate_password_policy(new_password)
+
+
+def validate_password_policy(password: str) -> None:
+    if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        raise ValueError("設定密碼必須有英文、數字組合，至少8碼")
 
 
 def public_user(user: dict[str, Any]) -> dict[str, Any]:

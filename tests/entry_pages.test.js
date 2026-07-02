@@ -383,9 +383,9 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.doesNotMatch(html, /<header class="admin-header">/);
   assert.doesNotMatch(html, /<main id="adminApp" class="admin-shell" hidden>[\s\S]*<h1>[\s\S]*<\/h1>[\s\S]*<\/main>/);
   assert.doesNotMatch(html, /配送紀錄維護/);
-  assert.match(html, /<nav class="admin-tabs"[^>]*>[\s\S]*<button id="adminLogout" class="ghost-button admin-logout-button" type="button">[\s\S]*<\/button>\s*<\/nav>/);
+  assert.match(html, /<div class="admin-top-row">\s*<nav class="admin-tabs"[^>]*>[\s\S]*<\/nav>\s*<div class="admin-top-actions">[\s\S]*<button id="adminLogout" class="ghost-button admin-logout-button" type="button">/);
   assert.match(css, /\.admin-sticky\s*\{[\s\S]*padding-bottom:\s*4px;/);
-  assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
+  assert.match(css, /\.admin-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\);[\s\S]*margin-bottom:\s*0;/);
   assert.match(css, /\.admin-tabs button\s*\{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;[\s\S]*white-space:\s*nowrap;/);
   assert.match(css, /\.admin-logout-button\s*\{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/);
   assert.match(css, /\.admin-view\s*\{[\s\S]*gap:\s*4px;/);
@@ -553,11 +553,48 @@ test("admin menu only shows permissions enabled for the signed-in user", () => {
   assert.match(adminJs, /setAdminMessage\("此帳號尚未啟用任何管理功能", true\);/);
 });
 
+test("admin header has a fixed right my account button", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(html, /<div class="admin-top-row">\s*<nav class="admin-tabs" aria-label="管理選單">[\s\S]*<\/nav>\s*<div class="admin-top-actions">[\s\S]*<button id="adminAccount" class="secondary-button admin-account-button" type="button">我的帳號<\/button>[\s\S]*<button id="adminLogout"/);
+  assert.match(css, /\.admin-top-row\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto;[\s\S]*align-items:\s*center;/);
+  assert.match(css, /\.admin-top-actions\s*\{[\s\S]*display:\s*flex;[\s\S]*justify-content:\s*flex-end;/);
+  assert.match(css, /\.admin-account-button\s*\{[\s\S]*width:\s*auto;[\s\S]*min-width:\s*88px;/);
+  assert.match(adminJs, /accountButton:\s*document\.querySelector\("#adminAccount"\)/);
+  assert.match(adminJs, /adminEls\.accountButton\.addEventListener\("click", \(\) => setView\("account"\)/);
+});
+
+test("admin my account view has profile and password panels", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(html, /<section id="accountView" class="admin-view" hidden>[\s\S]*<div class="account-grid">[\s\S]*<section class="admin-panel account-profile-panel">[\s\S]*<h2>我的帳號<\/h2>/);
+  assert.match(html, /<span>帳號<\/span>\s*<input id="accountUsername" readonly \/>/);
+  assert.match(html, /<span>使用者名稱<\/span>\s*<input id="accountDisplayName" autocomplete="name" \/>/);
+  assert.match(html, /<span>角色<\/span>\s*<input id="accountRole" readonly \/>/);
+  assert.match(html, /<div id="accountPermissions" class="account-permission-list" aria-label="目前的使用權限"><\/div>/);
+  assert.match(html, /<section class="admin-panel account-password-panel">[\s\S]*<h2>變更密碼<\/h2>[\s\S]*設定密碼必須有英文、數字組合，至少8碼/);
+  for (const id of ["accountOldPassword", "accountNewPassword", "accountConfirmPassword"]) {
+    assert.match(html, new RegExp(`<input id="${id}"[^>]*type="password"`));
+    assert.match(html, new RegExp(`<button[^>]*data-password-toggle="${id}"[^>]*aria-label="顯示密碼"`));
+  }
+  assert.match(html, /<button id="saveAccount" class="primary-button account-save-button" type="button">確定儲存<\/button>/);
+  assert.match(css, /\.account-grid\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
+  assert.match(css, /\.account-save-row\s*\{[\s\S]*grid-column:\s*1 \/ -1;[\s\S]*justify-content:\s*center;/);
+  assert.match(adminJs, /async function loadMyAccount\(\) \{/);
+  assert.match(adminJs, /async function saveMyAccount\(\) \{/);
+  assert.match(adminJs, /adminApi\(`\/api\/admin\/account\?token=\$\{encodeURIComponent\(adminState\.token\)\}`\)/);
+  assert.match(adminJs, /adminApi\("\/api\/admin\/account",[\s\S]*display_name:\s*adminEls\.accountDisplayName\.value\.trim\(\),[\s\S]*old_password:/);
+});
+
 test("admin list controls stay sticky above scrolling lists", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
 
-  assert.match(html, /<div class="admin-sticky">\s*<nav class="admin-tabs"/);
+  assert.match(html, /<div class="admin-sticky">\s*<div class="admin-top-row">\s*<nav class="admin-tabs"/);
   assert.match(html, /<p id="adminMessage" class="message" role="status" aria-live="polite"><\/p>\s*<\/div>\s*<section id="deliveriesView"/);
   assert.match(css, /\.admin-shell\s*\{[\s\S]*height:\s*100vh;[\s\S]*height:\s*100dvh;[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;[\s\S]*overflow:\s*hidden;/);
   assert.match(css, /\.admin-sticky\s*\{[\s\S]*position:\s*sticky;[\s\S]*top:\s*0;[\s\S]*z-index:\s*20;[\s\S]*background:\s*var\(--bg\);/);

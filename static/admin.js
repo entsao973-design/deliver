@@ -6,6 +6,14 @@ const ADMIN_VIEW_PERMISSIONS = {
   archive: "archive",
   users: "users",
 };
+const ADMIN_PERMISSION_LABELS = {
+  deliveries: "配送狀態",
+  deleted: "刪除區",
+  upload: "匯入 Excel",
+  archive: "封存照片",
+  users: "帳號管理",
+  driver: "物流士配送作業",
+};
 const ADMIN_DEFAULT_PERMISSIONS = {
   admin: {
     deliveries: true,
@@ -49,6 +57,7 @@ const adminEls = {
   passwordEyeOpen: document.querySelector("#adminPasswordEyeOpen"),
   passwordEyeClosed: document.querySelector("#adminPasswordEyeClosed"),
   loginError: document.querySelector("#adminLoginError"),
+  accountButton: document.querySelector("#adminAccount"),
   logout: document.querySelector("#adminLogout"),
   message: document.querySelector("#adminMessage"),
   tabs: document.querySelectorAll(".tab-button"),
@@ -58,6 +67,7 @@ const adminEls = {
     upload: document.querySelector("#uploadView"),
     archive: document.querySelector("#archiveView"),
     users: document.querySelector("#usersView"),
+    account: document.querySelector("#accountView"),
   },
   filterStartDate: document.querySelector("#filterStartDate"),
   filterEndDate: document.querySelector("#filterEndDate"),
@@ -92,6 +102,15 @@ const adminEls = {
   userPermissionInputs: document.querySelectorAll("[data-user-permission]"),
   saveUser: document.querySelector("#saveUser"),
   userList: document.querySelector("#userList"),
+  accountUsername: document.querySelector("#accountUsername"),
+  accountDisplayName: document.querySelector("#accountDisplayName"),
+  accountRole: document.querySelector("#accountRole"),
+  accountPermissions: document.querySelector("#accountPermissions"),
+  accountOldPassword: document.querySelector("#accountOldPassword"),
+  accountNewPassword: document.querySelector("#accountNewPassword"),
+  accountConfirmPassword: document.querySelector("#accountConfirmPassword"),
+  accountPasswordToggles: document.querySelectorAll("[data-password-toggle]"),
+  saveAccount: document.querySelector("#saveAccount"),
   photoDialog: document.querySelector("#adminPhotoDialog"),
   photoTitle: document.querySelector("#adminPhotoTitle"),
   photoPreview: document.querySelector("#adminPhotoPreview"),
@@ -132,6 +151,7 @@ for (const button of adminEls.tabs) {
     setView(button.dataset.view).catch((error) => setAdminMessage(error.message, true));
   });
 }
+adminEls.accountButton.addEventListener("click", () => setView("account").catch((error) => setAdminMessage(error.message, true)));
 
 adminEls.applyFilters.addEventListener("click", () => applyAdminFilters(false));
 adminEls.applyDeletedFilters.addEventListener("click", () => applyAdminFilters(true));
@@ -151,6 +171,10 @@ adminEls.userRole.addEventListener("change", () => {
   setUserPermissionControls(null, adminEls.userRole.value);
 });
 adminEls.saveUser.addEventListener("click", saveUser);
+adminEls.saveAccount.addEventListener("click", saveMyAccount);
+for (const button of adminEls.accountPasswordToggles) {
+  button.addEventListener("click", () => toggleAccountPassword(button));
+}
 adminEls.photoRotateLeft.addEventListener("click", () => rotateAdminPhoto(-90, adminEls.photoRotateLeft));
 adminEls.photoRotateRight.addEventListener("click", () => rotateAdminPhoto(90, adminEls.photoRotateRight));
 adminEls.closePhoto.addEventListener("click", (event) => {
@@ -274,6 +298,9 @@ function hasAdminPermission(permission) {
 }
 
 function isAdminViewAllowed(view) {
+  if (view === "account") {
+    return true;
+  }
   return Boolean(view && hasAdminPermission(ADMIN_VIEW_PERMISSIONS[view]));
 }
 
@@ -290,6 +317,7 @@ async function setView(view) {
     for (const button of adminEls.tabs) {
       button.classList.remove("active");
     }
+    adminEls.accountButton.classList.remove("active");
     for (const section of Object.values(adminEls.views)) {
       section.hidden = true;
     }
@@ -300,6 +328,7 @@ async function setView(view) {
   for (const button of adminEls.tabs) {
     button.classList.toggle("active", button.dataset.view === view);
   }
+  adminEls.accountButton.classList.toggle("active", view === "account");
   for (const [name, section] of Object.entries(adminEls.views)) {
     section.hidden = name !== view;
   }
@@ -316,6 +345,9 @@ async function setView(view) {
   }
   if (view === "archive") {
     await loadArchives();
+  }
+  if (view === "account") {
+    await loadMyAccount();
   }
 }
 
@@ -760,6 +792,77 @@ async function permanentlyDelete(delivery, button) {
       setAdminMessage(error.message, true);
     }
   });
+}
+
+async function loadMyAccount() {
+  const result = await adminApi(`/api/admin/account?token=${encodeURIComponent(adminState.token)}`);
+  renderMyAccount(result.user);
+}
+
+function renderMyAccount(user) {
+  adminEls.accountUsername.value = user.username || "";
+  adminEls.accountDisplayName.value = user.display_name || "";
+  adminEls.accountRole.value = adminRoleLabel(user.role);
+  renderAccountPermissions(user.permissions || {});
+}
+
+function renderAccountPermissions(permissions) {
+  adminEls.accountPermissions.replaceChildren();
+  const normalized = normalizeAdminPermissions(permissions, "admin");
+  for (const key of ADMIN_PERMISSION_KEYS) {
+    const item = document.createElement("div");
+    item.className = "account-permission-item";
+    const label = document.createElement("span");
+    label.textContent = ADMIN_PERMISSION_LABELS[key] || key;
+    const state = document.createElement("span");
+    state.className = "account-permission-state";
+    state.textContent = normalized[key] ? "啟用" : "禁用";
+    item.append(label, state);
+    adminEls.accountPermissions.append(item);
+  }
+}
+
+async function saveMyAccount() {
+  try {
+    const result = await adminApi("/api/admin/account", {
+      method: "POST",
+      body: {
+        token: adminState.token,
+        display_name: adminEls.accountDisplayName.value.trim(),
+        old_password: adminEls.accountOldPassword.value,
+        new_password: adminEls.accountNewPassword.value,
+        confirm_password: adminEls.accountConfirmPassword.value,
+      },
+    });
+    renderMyAccount(result.user);
+    clearAccountPasswordFields();
+    setAdminMessage("我的帳號已儲存");
+  } catch (error) {
+    setAdminMessage(error.message, true);
+  }
+}
+
+function clearAccountPasswordFields() {
+  adminEls.accountOldPassword.value = "";
+  adminEls.accountNewPassword.value = "";
+  adminEls.accountConfirmPassword.value = "";
+}
+
+function toggleAccountPassword(button) {
+  const input = document.querySelector(`#${button.dataset.passwordToggle}`);
+  if (!input) {
+    return;
+  }
+  const isVisible = input.type === "password";
+  input.type = isVisible ? "text" : "password";
+  button.setAttribute("aria-label", isVisible ? "隱藏密碼" : "顯示密碼");
+  button.setAttribute("aria-pressed", String(isVisible));
+  setAdminPasswordIconHidden(button.querySelector(".eye-open"), isVisible);
+  setAdminPasswordIconHidden(button.querySelector(".eye-closed"), !isVisible);
+}
+
+function adminRoleLabel(role) {
+  return role === "admin" ? "管理人員" : "司機";
 }
 
 async function loadUsers() {

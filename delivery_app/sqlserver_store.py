@@ -18,6 +18,7 @@ from .auth import (
     normalize_permissions,
     parse_time,
     public_user,
+    validate_password_change,
     verify_password,
 )
 from .excel_importer import import_deliveries, normalize_vehicle_no
@@ -1440,6 +1441,69 @@ ORDER BY username
             })
             for row in rows
         ]
+
+    def get_user(self, username: str) -> dict[str, Any]:
+        user = self._fetch_user(username.strip())
+        if not user:
+            raise KeyError("找不到使用者")
+        return public_user(user)
+
+    def update_own_account(
+        self,
+        username: str,
+        display_name: str,
+        old_password: str = "",
+        new_password: str = "",
+        confirm_password: str = "",
+    ) -> dict[str, Any]:
+        username = username.strip()
+        if not self._display_name_column_available:
+            raise ValueError("SQL Server 尚未加入使用者名稱欄位，請先執行 docs/sql/2026-06-30-add-user-display-name.sql")
+
+        with self._lock:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                try:
+                    user = self._fetch_user(cursor, username)
+                    if not user:
+                        raise KeyError("找不到使用者")
+
+                    now = datetime.now().replace(microsecond=0)
+                    should_change_password = any([old_password, new_password, confirm_password])
+                    if should_change_password:
+                        validate_password_change(user, old_password, new_password, confirm_password)
+                        cursor.execute(
+                            """
+UPDATE dbo.users
+SET display_name = ?,
+    password_hash = ?,
+    failed_attempts = 0,
+    locked_until = NULL,
+    updated_at = ?
+WHERE username = ?
+""",
+                            str(display_name or "").strip(),
+                            hash_password(new_password),
+                            now,
+                            username,
+                        )
+                    else:
+                        cursor.execute(
+                            """
+UPDATE dbo.users
+SET display_name = ?,
+    updated_at = ?
+WHERE username = ?
+""",
+                            str(display_name or "").strip(),
+                            now,
+                            username,
+                        )
+                    connection.commit()
+                    return public_user(self._fetch_user(username))
+                except Exception:
+                    connection.rollback()
+                    raise
 
     def upsert_user(
         self,

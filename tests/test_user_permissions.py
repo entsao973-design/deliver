@@ -178,6 +178,119 @@ class UserPermissionTest(unittest.TestCase):
         self.assertEqual(list_status, 200)
         self.assertEqual(users["driver-a"]["display_name"], "王小明")
 
+    def test_admin_account_api_updates_own_display_name_and_password(self):
+        with running_permission_server(
+            [
+                {
+                    "username": "limited",
+                    "password": "oldpass1",
+                    "role": "admin",
+                    "display_name": "舊名稱",
+                    "permissions": {"deliveries": True, "users": False},
+                }
+            ]
+        ) as address:
+            status, login_content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "limited", "password": "oldpass1", "login_context": "admin"},
+            )
+            token = json.loads(login_content)["token"]
+
+            profile_status, profile_content = request_json(
+                address,
+                "GET",
+                f"/api/admin/account?token={token}",
+            )
+            save_status, save_content = request_json(
+                address,
+                "POST",
+                "/api/admin/account",
+                {
+                    "token": token,
+                    "display_name": "新名稱",
+                    "old_password": "oldpass1",
+                    "new_password": "newpass1",
+                    "confirm_password": "newpass1",
+                },
+            )
+            old_login_status, _ = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "limited", "password": "oldpass1", "login_context": "admin"},
+            )
+            new_login_status, new_login_content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "limited", "password": "newpass1", "login_context": "admin"},
+            )
+
+        profile = json.loads(profile_content)["user"]
+        saved = json.loads(save_content)["user"]
+        new_login = json.loads(new_login_content)
+        self.assertEqual(status, 200)
+        self.assertEqual(profile_status, 200)
+        self.assertEqual(profile["username"], "limited")
+        self.assertEqual(profile["display_name"], "舊名稱")
+        self.assertFalse(profile["permissions"]["users"])
+        self.assertEqual(save_status, 200)
+        self.assertEqual(saved["display_name"], "新名稱")
+        self.assertEqual(old_login_status, 401)
+        self.assertEqual(new_login_status, 200)
+        self.assertEqual(new_login["user"]["display_name"], "新名稱")
+
+    def test_admin_account_api_rejects_weak_or_mismatched_password(self):
+        with running_permission_server(
+            [
+                {
+                    "username": "admin-a",
+                    "password": "oldpass1",
+                    "role": "admin",
+                    "permissions": {"deliveries": True},
+                }
+            ]
+        ) as address:
+            _, login_content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "admin-a", "password": "oldpass1", "login_context": "admin"},
+            )
+            token = json.loads(login_content)["token"]
+
+            weak_status, weak_content = request_json(
+                address,
+                "POST",
+                "/api/admin/account",
+                {
+                    "token": token,
+                    "display_name": "名稱",
+                    "old_password": "oldpass1",
+                    "new_password": "password",
+                    "confirm_password": "password",
+                },
+            )
+            mismatch_status, mismatch_content = request_json(
+                address,
+                "POST",
+                "/api/admin/account",
+                {
+                    "token": token,
+                    "display_name": "名稱",
+                    "old_password": "oldpass1",
+                    "new_password": "newpass1",
+                    "confirm_password": "newpass2",
+                },
+            )
+
+        self.assertEqual(weak_status, 400)
+        self.assertIn("設定密碼必須有英文、數字組合，至少8碼", weak_content)
+        self.assertEqual(mismatch_status, 400)
+        self.assertIn("新密碼與確認密碼不一致", mismatch_content)
+
     def test_login_response_includes_permissions(self):
         with running_permission_server(
             [

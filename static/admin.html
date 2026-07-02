@@ -55,14 +55,19 @@
 
     <main id="adminApp" class="admin-shell" hidden>
       <div class="admin-sticky">
-        <nav class="admin-tabs" aria-label="管理選單">
-          <button class="tab-button active" data-view="deliveries" data-permission="deliveries" type="button">配送狀態</button>
-          <button class="tab-button" data-view="deleted" data-permission="deleted" type="button">刪除區</button>
-          <button class="tab-button" data-view="upload" data-permission="upload" type="button">匯入 Excel</button>
-          <button class="tab-button" data-view="archive" data-permission="archive" type="button">封存照片</button>
-          <button class="tab-button" data-view="users" data-permission="users" type="button">帳號管理</button>
-          <button id="adminLogout" class="ghost-button admin-logout-button" type="button">登出</button>
-        </nav>
+        <div class="admin-top-row">
+          <nav class="admin-tabs" aria-label="管理選單">
+            <button class="tab-button active" data-view="deliveries" data-permission="deliveries" type="button">配送狀態</button>
+            <button class="tab-button" data-view="deleted" data-permission="deleted" type="button">刪除區</button>
+            <button class="tab-button" data-view="upload" data-permission="upload" type="button">匯入 Excel</button>
+            <button class="tab-button" data-view="archive" data-permission="archive" type="button">封存照片</button>
+            <button class="tab-button" data-view="users" data-permission="users" type="button">帳號管理</button>
+          </nav>
+          <div class="admin-top-actions">
+            <button id="adminAccount" class="secondary-button admin-account-button" type="button">我的帳號</button>
+            <button id="adminLogout" class="ghost-button admin-logout-button" type="button">登出</button>
+          </div>
+        </div>
 
         <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
       </div>
@@ -220,6 +225,95 @@
               </div>
             </div>
           </section>
+        </div>
+      </section>
+
+      <section id="accountView" class="admin-view" hidden>
+        <div class="account-grid">
+          <section class="admin-panel account-profile-panel">
+            <h2>我的帳號</h2>
+            <div class="account-form">
+              <label>
+                <span>帳號</span>
+                <input id="accountUsername" readonly />
+              </label>
+              <label>
+                <span>使用者名稱</span>
+                <input id="accountDisplayName" autocomplete="name" />
+              </label>
+              <label>
+                <span>角色</span>
+                <input id="accountRole" readonly />
+              </label>
+              <section>
+                <span>目前的使用權限</span>
+                <div id="accountPermissions" class="account-permission-list" aria-label="目前的使用權限"></div>
+              </section>
+            </div>
+          </section>
+          <section class="admin-panel account-password-panel">
+            <h2>變更密碼</h2>
+            <p class="subtle">設定密碼必須有英文、數字組合，至少8碼。</p>
+            <div class="account-form">
+              <label>
+                <span>舊密碼</span>
+                <div class="password-field">
+                  <input id="accountOldPassword" type="password" autocomplete="current-password" />
+                  <button class="password-toggle" data-password-toggle="accountOldPassword" type="button" aria-label="顯示密碼" aria-pressed="false">
+                    <svg class="eye-icon eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg class="eye-icon eye-closed" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                      <path d="M3 3l18 18"></path>
+                      <path d="M10.6 10.6a3 3 0 0 0 3.8 3.8"></path>
+                      <path d="M9.9 5.2A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a15 15 0 0 1-3.1 4"></path>
+                      <path d="M6.2 6.6C3.8 8.3 2.5 12 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 4-.8"></path>
+                    </svg>
+                  </button>
+                </div>
+              </label>
+              <label>
+                <span>新密碼</span>
+                <div class="password-field">
+                  <input id="accountNewPassword" type="password" autocomplete="new-password" />
+                  <button class="password-toggle" data-password-toggle="accountNewPassword" type="button" aria-label="顯示密碼" aria-pressed="false">
+                    <svg class="eye-icon eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg class="eye-icon eye-closed" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                      <path d="M3 3l18 18"></path>
+                      <path d="M10.6 10.6a3 3 0 0 0 3.8 3.8"></path>
+                      <path d="M9.9 5.2A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a15 15 0 0 1-3.1 4"></path>
+                      <path d="M6.2 6.6C3.8 8.3 2.5 12 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 4-.8"></path>
+                    </svg>
+                  </button>
+                </div>
+              </label>
+              <label>
+                <span>確認密碼</span>
+                <div class="password-field">
+                  <input id="accountConfirmPassword" type="password" autocomplete="new-password" />
+                  <button class="password-toggle" data-password-toggle="accountConfirmPassword" type="button" aria-label="顯示密碼" aria-pressed="false">
+                    <svg class="eye-icon eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg class="eye-icon eye-closed" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                      <path d="M3 3l18 18"></path>
+                      <path d="M10.6 10.6a3 3 0 0 0 3.8 3.8"></path>
+                      <path d="M9.9 5.2A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a15 15 0 0 1-3.1 4"></path>
+                      <path d="M6.2 6.6C3.8 8.3 2.5 12 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 4-.8"></path>
+                    </svg>
+                  </button>
+                </div>
+              </label>
+            </div>
+          </section>
+          <div class="account-save-row">
+            <button id="saveAccount" class="primary-button account-save-button" type="button">確定儲存</button>
+          </div>
         </div>
       </section>
     </main>

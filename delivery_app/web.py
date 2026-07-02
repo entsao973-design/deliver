@@ -123,6 +123,8 @@ class DeliveryServer:
                     self._handle_admin_deliveries(parsed)
                 elif parsed.path == "/api/admin/options":
                     self._handle_admin_options(parsed)
+                elif parsed.path == "/api/admin/account":
+                    self._handle_admin_account(parsed)
                 elif parsed.path == "/api/admin/users":
                     self._handle_admin_users(parsed)
                 elif parsed.path == "/api/admin/archives":
@@ -158,6 +160,8 @@ class DeliveryServer:
                     self._handle_reload()
                 elif parsed.path == "/api/admin/import":
                     self._handle_admin_import()
+                elif parsed.path == "/api/admin/account":
+                    self._handle_admin_account_save()
                 elif parsed.path == "/api/admin/users":
                     self._handle_admin_user_save()
                 elif parsed.path == "/api/admin/users/delete":
@@ -584,6 +588,38 @@ class DeliveryServer:
                 if not self._admin_with_permission_from_request(parsed, "users"):
                     return
                 self._send_json({"users": app.users.list_users()})
+
+            def _handle_admin_account(self, parsed) -> None:
+                session = self._admin_from_request(parsed)
+                if not session:
+                    return
+                try:
+                    user = app.users.get_user(session["username"])
+                except KeyError:
+                    self._json_error(HTTPStatus.NOT_FOUND, "找不到使用者")
+                    return
+                self._send_json({"user": user})
+
+            def _handle_admin_account_save(self) -> None:
+                body = self._read_json()
+                session = self._admin_from_body(body)
+                if not session:
+                    return
+                try:
+                    user = app.users.update_own_account(
+                        session["username"],
+                        str(body.get("display_name", "")).strip(),
+                        str(body.get("old_password", "")),
+                        str(body.get("new_password", "")),
+                        str(body.get("confirm_password", "")),
+                    )
+                except KeyError:
+                    self._json_error(HTTPStatus.NOT_FOUND, "找不到使用者")
+                    return
+                except ValueError as exc:
+                    self._json_error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                self._send_json({"user": user})
 
             def _handle_admin_user_save(self) -> None:
                 body = self._read_json()
