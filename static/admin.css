@@ -226,7 +226,28 @@
 }
 
 .admin-card.delivery-row.has-inline-photo {
-  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr) minmax(88px, 1fr) max-content minmax(120px, 2fr) minmax(76px, 1fr) minmax(100px, 2fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.admin-inline-photo-left,
+.admin-inline-photo-right {
+  display: contents;
+}
+
+.admin-card.delivery-row.has-inline-photo .admin-inline-photo-left {
+  display: grid;
+  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-card.delivery-row.has-inline-photo .admin-inline-photo-right {
+  display: grid;
+  grid-template-columns: max-content minmax(120px, 2fr) minmax(76px, 1fr) minmax(100px, 2fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .admin-card.delivery-row .admin-customer {
@@ -299,6 +320,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  justify-self: center;
   gap: 4px;
   min-height: 34px;
 }

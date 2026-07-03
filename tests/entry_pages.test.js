@@ -328,7 +328,7 @@ test("admin inline photos are zoomable and support immediate icon rotate save", 
 
   assert.match(adminJs, /const inlinePhotoToolbar = card\.querySelector\("\.admin-inline-photo-toolbar"\);/);
   assert.match(adminJs, /card\.append\(createAdminInlinePhoto\(delivery, inlinePhotoToolbar\)\);/);
-  assert.match(adminJs, /<div class="admin-inline-photo-toolbar"><\/div>\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>/);
+  assert.match(adminJs, /<div class="admin-inline-photo-left">\s*<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<\/div>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<div class="admin-inline-photo-right">\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>/);
   assert.match(adminJs, /card\.querySelector\("\.admin-photo-time"\)\.textContent = showInlinePhoto \? `照片時間：\$\{formatPhotoTime\(delivery\.photo_updated_at\)\}` : "";/);
   assert.match(adminJs, /function createAdminInlinePhoto\(delivery, toolbar\) \{/);
   assert.match(adminJs, /wrapper\.className = "admin-inline-photo-frame";/);
@@ -346,7 +346,10 @@ test("admin inline photos are zoomable and support immediate icon rotate save", 
   assert.doesNotMatch(adminJs, /admin-inline-photo-saving|runInlinePhotoRotateWithStatus/);
   assert.match(adminCss, /\.admin-inline-photo-frame\s*\{[\s\S]*grid-column:\s*1 \/ -1;[\s\S]*display:\s*grid;[\s\S]*gap:\s*4px;/);
   assert.match(adminCss, /\.admin-inline-photo-toolbar\s*\{[\s\S]*display:\s*none;/);
-  assert.match(adminCss, /\.admin-card\.delivery-row\.has-inline-photo \.admin-inline-photo-toolbar\s*\{[\s\S]*display:\s*flex;[\s\S]*justify-content:\s*center;[\s\S]*align-items:\s*center;/);
+  assert.match(adminCss, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto minmax\(0,\s*1fr\);/);
+  assert.match(adminCss, /\.admin-card\.delivery-row\.has-inline-photo \.admin-inline-photo-left\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(180px,\s*3fr\) minmax\(160px,\s*2fr\);/);
+  assert.match(adminCss, /\.admin-card\.delivery-row\.has-inline-photo \.admin-inline-photo-right\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*max-content minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(100px,\s*2fr\);/);
+  assert.match(adminCss, /\.admin-card\.delivery-row\.has-inline-photo \.admin-inline-photo-toolbar\s*\{[\s\S]*display:\s*flex;[\s\S]*justify-content:\s*center;[\s\S]*align-items:\s*center;[\s\S]*justify-self:\s*center;/);
   assert.match(adminCss, /\.photo-rotate-error\s*\{[\s\S]*font-size:\s*8px;[\s\S]*white-space:\s*nowrap;/);
   assert.match(adminCss, /\.admin-inline-photo-viewport\s*\{[\s\S]*height:\s*320px;[\s\S]*overflow:\s*hidden;[\s\S]*touch-action:\s*none;/);
   assert.match(adminCss, /\.photo-icon-button\s*\{[\s\S]*width:\s*38px;[\s\S]*font-size:\s*20px;/);
@@ -453,7 +456,7 @@ test("admin delivery list uses full width compact rows", () => {
 
   assert.match(css, /\.admin-shell\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/);
   assert.match(css, /\.admin-card\.delivery-row\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*4fr\) minmax\(160px,\s*3fr\) minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(100px,\s*2fr\);/);
-  assert.match(css, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*3fr\) minmax\(160px,\s*2fr\) minmax\(88px,\s*1fr\) max-content minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(100px,\s*2fr\);/);
+  assert.match(css, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto minmax\(0,\s*1fr\);/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-customer\s*\{[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*800;[\s\S]*color:\s*#000000;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-row-cell,[\s\S]*\.admin-card\.delivery-row \.admin-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*color:\s*#000000;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-document,[\s\S]*\.admin-card\.delivery-row \.admin-photo-time,[\s\S]*\.admin-card\.delivery-row \.admin-route,[\s\S]*\.admin-card\.delivery-row \.admin-status\s*\{[\s\S]*text-align:\s*left;/);
@@ -463,7 +466,7 @@ test("admin delivery list uses full width compact rows", () => {
   assert.match(adminJs, /const hideDeliveryDate = Boolean\(startDateEl\.value && startDateEl\.value === endDateEl\.value\);/);
   assert.match(adminJs, /renderDeliveries\(listEl, result\.deliveries, deleted, hideDeliveryDate\);/);
   assert.match(adminJs, /function renderDeliveries\(container, deliveries, deleted, hideDeliveryDate = false\)/);
-  assert.match(adminJs, /<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-row-actions"><\/div>/);
+  assert.match(adminJs, /<div class="admin-inline-photo-left">\s*<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<\/div>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<div class="admin-inline-photo-right">\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-row-actions"><\/div>\s*<\/div>/);
   assert.match(adminJs, /card\.querySelector\("\.admin-document"\)\.textContent = \[[\s\S]*hideDeliveryDate \? "" : delivery\.delivery_date,[\s\S]*delivery\.company,[\s\S]*delivery\.invoice_no,[\s\S]*\]\.filter\(Boolean\)\.join\(" \\| "\);/);
   assert.match(adminJs, /card\.querySelector\("\.admin-route"\)\.textContent = \[delivery\.driver, delivery\.vehicle_no\]\.filter\(Boolean\)\.join\(" \\| "\);/);
 });

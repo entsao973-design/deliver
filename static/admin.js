@@ -452,13 +452,17 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
     const card = document.createElement("article");
     card.className = `${deleted ? "admin-card delivery-row deleted-card" : "admin-card delivery-row"}${hideDeliveryDate ? " hide-date" : ""}${showInlinePhoto ? " has-inline-photo" : ""}`;
     card.innerHTML = `
-      <strong class="admin-customer"></strong>
-      <span class="admin-row-cell admin-document"></span>
+      <div class="admin-inline-photo-left">
+        <strong class="admin-customer"></strong>
+        <span class="admin-row-cell admin-document"></span>
+      </div>
       <div class="admin-inline-photo-toolbar"></div>
-      <span class="admin-row-cell admin-photo-time"></span>
-      <span class="admin-row-cell admin-route"></span>
-      <span class="admin-row-cell admin-status"></span>
-      <div class="admin-actions admin-row-actions"></div>
+      <div class="admin-inline-photo-right">
+        <span class="admin-row-cell admin-photo-time"></span>
+        <span class="admin-row-cell admin-route"></span>
+        <span class="admin-row-cell admin-status"></span>
+        <div class="admin-actions admin-row-actions"></div>
+      </div>
     `;
     card.querySelector(".admin-customer").textContent = delivery.customer || "";
     card.querySelector(".admin-document").textContent = [
