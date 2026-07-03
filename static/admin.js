@@ -433,6 +433,10 @@ function makeCountSpan(text) {
   return span;
 }
 
+function formatPhotoTime(value) {
+  return value ? String(value).replace("T", " ") : "";
+}
+
 function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = false) {
   container.replaceChildren();
   if (deliveries.length === 0) {
@@ -451,6 +455,7 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
       <strong class="admin-customer"></strong>
       <span class="admin-row-cell admin-document"></span>
       <div class="admin-inline-photo-toolbar"></div>
+      <span class="admin-row-cell admin-photo-time"></span>
       <span class="admin-row-cell admin-route"></span>
       <span class="admin-row-cell admin-status"></span>
       <div class="admin-actions admin-row-actions"></div>
@@ -461,6 +466,7 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
       delivery.company,
       delivery.invoice_no,
     ].filter(Boolean).join(" | ");
+    card.querySelector(".admin-photo-time").textContent = showInlinePhoto ? `照片時間：${formatPhotoTime(delivery.photo_updated_at)}` : "";
     card.querySelector(".admin-route").textContent = [delivery.driver, delivery.vehicle_no].filter(Boolean).join(" | ");
     const statusEl = card.querySelector(".admin-status");
     statusEl.textContent = delivery.status_label || "";

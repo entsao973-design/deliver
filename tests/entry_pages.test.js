@@ -327,6 +327,8 @@ test("admin inline photos are zoomable and support immediate icon rotate save", 
 
   assert.match(adminJs, /const inlinePhotoToolbar = card\.querySelector\("\.admin-inline-photo-toolbar"\);/);
   assert.match(adminJs, /card\.append\(createAdminInlinePhoto\(delivery, inlinePhotoToolbar\)\);/);
+  assert.match(adminJs, /<div class="admin-inline-photo-toolbar"><\/div>\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>/);
+  assert.match(adminJs, /card\.querySelector\("\.admin-photo-time"\)\.textContent = showInlinePhoto \? `照片時間：\$\{formatPhotoTime\(delivery\.photo_updated_at\)\}` : "";/);
   assert.match(adminJs, /function createAdminInlinePhoto\(delivery, toolbar\) \{/);
   assert.match(adminJs, /wrapper\.className = "admin-inline-photo-frame";/);
   assert.match(adminJs, /viewport\.className = "admin-inline-photo-viewport";/);
@@ -444,20 +446,21 @@ test("admin filter row shows query before filtered delivery counts", () => {
   assert.match(adminJs, /function updateDeliveryCounts\(element, deliveries\) \{[\s\S]*const deliveredCount = deliveries\.filter\(\(delivery\) => Boolean\(delivery\.status\)\)\.length;[\s\S]*const pendingCount = totalCount - deliveredCount;[\s\S]*makeCountSpan\(`已達交: \$\{deliveredCount\}`\)[\s\S]*makeCountSpan\(`未達交: \$\{pendingCount\}`\)[\s\S]*makeCountSpan\(`共: \$\{totalCount\}`\)/);
 });
 
-test("admin delivery list uses full width compact six-block rows", () => {
+test("admin delivery list uses full width compact rows", () => {
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
   assert.match(css, /\.admin-shell\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/);
-  assert.match(css, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*3fr\) minmax\(160px,\s*2fr\) minmax\(88px,\s*1fr\) minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(140px,\s*2fr\);/);
+  assert.match(css, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*3fr\) minmax\(160px,\s*2fr\) minmax\(88px,\s*1fr\) minmax\(130px,\s*1\.4fr\) minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(140px,\s*2fr\);/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-customer\s*\{[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*800;[\s\S]*color:\s*#000000;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-row-cell,[\s\S]*\.admin-card\.delivery-row \.admin-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*color:\s*#000000;/);
-  assert.match(css, /\.admin-card\.delivery-row \.admin-document,[\s\S]*\.admin-card\.delivery-row \.admin-route,[\s\S]*\.admin-card\.delivery-row \.admin-status\s*\{[\s\S]*text-align:\s*left;/);
+  assert.match(css, /\.admin-card\.delivery-row \.admin-document,[\s\S]*\.admin-card\.delivery-row \.admin-photo-time,[\s\S]*\.admin-card\.delivery-row \.admin-route,[\s\S]*\.admin-card\.delivery-row \.admin-status\s*\{[\s\S]*text-align:\s*left;/);
+  assert.match(css, /\.admin-card\.delivery-row:not\(\.has-inline-photo\) \.admin-photo-time\s*\{[\s\S]*display:\s*none;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-row-actions\s*\{[\s\S]*justify-content:\s*flex-end;/);
   assert.match(adminJs, /const hideDeliveryDate = Boolean\(startDateEl\.value && startDateEl\.value === endDateEl\.value\);/);
   assert.match(adminJs, /renderDeliveries\(listEl, result\.deliveries, deleted, hideDeliveryDate\);/);
   assert.match(adminJs, /function renderDeliveries\(container, deliveries, deleted, hideDeliveryDate = false\)/);
-  assert.match(adminJs, /<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<span class="admin-row-cell admin-route"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-row-actions"><\/div>/);
+  assert.match(adminJs, /<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-row-actions"><\/div>/);
   assert.match(adminJs, /card\.querySelector\("\.admin-document"\)\.textContent = \[[\s\S]*hideDeliveryDate \? "" : delivery\.delivery_date,[\s\S]*delivery\.company,[\s\S]*delivery\.invoice_no,[\s\S]*\]\.filter\(Boolean\)\.join\(" \\| "\);/);
   assert.match(adminJs, /card\.querySelector\("\.admin-route"\)\.textContent = \[delivery\.driver, delivery\.vehicle_no\]\.filter\(Boolean\)\.join\(" \\| "\);/);
 });

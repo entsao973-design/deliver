@@ -226,7 +226,7 @@
 }
 
 .admin-card.delivery-row.has-inline-photo {
-  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr) minmax(88px, 1fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(140px, 2fr);
+  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr) minmax(88px, 1fr) minmax(130px, 1.4fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(140px, 2fr);
 }
 
 .admin-card.delivery-row .admin-customer {
@@ -240,9 +240,14 @@
 }
 
 .admin-card.delivery-row .admin-document,
+.admin-card.delivery-row .admin-photo-time,
 .admin-card.delivery-row .admin-route,
 .admin-card.delivery-row .admin-status {
   text-align: left;
+}
+
+.admin-card.delivery-row:not(.has-inline-photo) .admin-photo-time {
+  display: none;
 }
 
 .admin-card.delivery-row .admin-row-cell,
