@@ -41,8 +41,8 @@ test("driver photo dialog header uses one compact row", () => {
   assert.match(css, /\.dialog-header\s+>\s+\.ghost-button,\s*\.dialog-close-form\s*\{[^}]*justify-self:\s*end;/s);
 });
 
-test("admin photo dialog header gives title the remaining width", () => {
-  assert.match(css, /#adminPhotoDialog\s+\.dialog-header\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto;[^}]*align-items:\s*center;/s);
+test("admin photo dialog header keeps rotation tools near the center", () => {
+  assert.match(css, /#adminPhotoDialog\s+\.dialog-header\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto minmax\(0,\s*1fr\);[^}]*align-items:\s*center;/s);
 });
 
 test("photo dialog title wraps instead of truncating", () => {

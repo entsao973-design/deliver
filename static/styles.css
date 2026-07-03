@@ -911,7 +911,7 @@ select:focus {
 
 #adminPhotoDialog .dialog-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
 }
 
