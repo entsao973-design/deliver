@@ -911,8 +911,15 @@ select:focus {
 
 #adminPhotoDialog .dialog-header {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
+}
+
+#adminPhotoDialog .dialog-header strong {
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dialog-close-form {

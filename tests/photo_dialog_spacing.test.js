@@ -41,8 +41,8 @@ test("driver photo dialog header uses one compact row", () => {
   assert.match(css, /\.dialog-header\s+>\s+\.ghost-button,\s*\.dialog-close-form\s*\{[^}]*justify-self:\s*end;/s);
 });
 
-test("admin photo dialog header uses three equal sections", () => {
-  assert.match(css, /#adminPhotoDialog\s+\.dialog-header\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[^}]*align-items:\s*center;/s);
+test("admin photo dialog header gives title the remaining width", () => {
+  assert.match(css, /#adminPhotoDialog\s+\.dialog-header\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto;[^}]*align-items:\s*center;/s);
 });
 
 test("photo dialog title wraps instead of truncating", () => {
@@ -53,6 +53,15 @@ test("photo dialog title wraps instead of truncating", () => {
   assert.doesNotMatch(titleRule, /overflow:\s*hidden;/);
   assert.doesNotMatch(titleRule, /text-overflow:\s*ellipsis;/);
   assert.doesNotMatch(titleRule, /white-space:\s*nowrap;/);
+});
+
+test("admin photo dialog title stays on one line when space is available", () => {
+  const adminTitleRule = cssRule("#adminPhotoDialog .dialog-header strong");
+
+  assert.match(adminTitleRule, /white-space:\s*nowrap;/);
+  assert.match(adminTitleRule, /overflow:\s*hidden;/);
+  assert.match(adminTitleRule, /text-overflow:\s*ellipsis;/);
+  assert.match(adminTitleRule, /overflow-wrap:\s*normal;/);
 });
 
 test("photo dialog rotation tools are centered and tightly grouped", () => {
