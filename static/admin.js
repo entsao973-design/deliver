@@ -562,13 +562,22 @@ async function uploadExcel() {
       adminEls.excelFile.value = "";
       setUploadFiles([]);
       adminEls.importSummary.textContent = lines.join("\n\n");
-      await loadOptions();
-      await loadDeliveries(false);
+      await refreshAfterImport();
       setAdminMessage("匯入完成");
     } catch (error) {
       setAdminMessage(error.message, true);
     }
   });
+}
+
+async function refreshAfterImport() {
+  if (hasAdminPermission("deliveries")) {
+    await loadOptions(false);
+    await loadDeliveries(false);
+  }
+  if (hasAdminPermission("deleted")) {
+    await loadOptions(true);
+  }
 }
 
 async function archivePhotos() {

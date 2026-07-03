@@ -424,6 +424,16 @@ test("archive date change loads existing archives and keeps only the latest resp
   assert.match(adminJs, /此日期尚無封存檔案/);
 });
 
+test("admin import success refreshes only delivery data allowed by permissions", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /await refreshAfterImport\(\);/);
+  assert.match(adminJs, /async function refreshAfterImport\(\) \{/);
+  assert.match(adminJs, /if \(hasAdminPermission\("deliveries"\)\) \{[\s\S]*await loadOptions\(false\);[\s\S]*await loadDeliveries\(false\);[\s\S]*\}/);
+  assert.match(adminJs, /if \(hasAdminPermission\("deleted"\)\) \{[\s\S]*await loadOptions\(true\);[\s\S]*\}/);
+  assert.doesNotMatch(adminJs, /await loadOptions\(\);\s*await loadDeliveries\(false\);\s*setAdminMessage\("匯入完成"\);/);
+});
+
 test("admin delivery record maintenance UI is removed from the admin platform", () => {
   const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
