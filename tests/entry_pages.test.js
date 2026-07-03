@@ -451,10 +451,11 @@ test("admin delivery list uses full width compact rows", () => {
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
   assert.match(css, /\.admin-shell\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/);
-  assert.match(css, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*3fr\) minmax\(160px,\s*2fr\) minmax\(88px,\s*1fr\) minmax\(130px,\s*1\.4fr\) minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(140px,\s*2fr\);/);
+  assert.match(css, /\.admin-card\.delivery-row\.has-inline-photo\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*3fr\) minmax\(160px,\s*2fr\) minmax\(88px,\s*1fr\) max-content minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(140px,\s*2fr\);/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-customer\s*\{[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*800;[\s\S]*color:\s*#000000;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-row-cell,[\s\S]*\.admin-card\.delivery-row \.admin-actions button\s*\{[\s\S]*font-size:\s*12px;[\s\S]*color:\s*#000000;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-document,[\s\S]*\.admin-card\.delivery-row \.admin-photo-time,[\s\S]*\.admin-card\.delivery-row \.admin-route,[\s\S]*\.admin-card\.delivery-row \.admin-status\s*\{[\s\S]*text-align:\s*left;/);
+  assert.match(css, /\.admin-card\.delivery-row \.admin-photo-time\s*\{[\s\S]*min-width:\s*max-content;[\s\S]*overflow:\s*visible;[\s\S]*text-overflow:\s*clip;/);
   assert.match(css, /\.admin-card\.delivery-row:not\(\.has-inline-photo\) \.admin-photo-time\s*\{[\s\S]*display:\s*none;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-row-actions\s*\{[\s\S]*justify-content:\s*flex-end;/);
   assert.match(adminJs, /const hideDeliveryDate = Boolean\(startDateEl\.value && startDateEl\.value === endDateEl\.value\);/);
