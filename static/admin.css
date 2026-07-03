@@ -217,7 +217,7 @@
 }
 
 .admin-card.delivery-row {
-  grid-template-columns: minmax(180px, 4fr) minmax(160px, 3fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(140px, 2fr);
+  grid-template-columns: minmax(180px, 4fr) minmax(160px, 3fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(100px, 2fr);
   gap: 8px;
   width: 100%;
   min-width: 900px;
@@ -226,7 +226,7 @@
 }
 
 .admin-card.delivery-row.has-inline-photo {
-  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr) minmax(88px, 1fr) max-content minmax(120px, 2fr) minmax(76px, 1fr) minmax(140px, 2fr);
+  grid-template-columns: minmax(180px, 3fr) minmax(160px, 2fr) minmax(88px, 1fr) max-content minmax(120px, 2fr) minmax(76px, 1fr) minmax(100px, 2fr);
 }
 
 .admin-card.delivery-row .admin-customer {

@@ -978,7 +978,7 @@ function openAdminPhoto(delivery) {
 }
 
 function setAdminPhotoPreview(delivery) {
-  adminEls.photoTitle.textContent = `${delivery.invoice_no} ${delivery.status_label}`;
+  adminEls.photoTitle.textContent = [delivery.invoice_no, delivery.status_label, `照片時間：${formatPhotoTime(delivery.photo_updated_at)}`].filter(Boolean).join(" | ");
   setAdminPhotoSource(adminEls.photoPreview, delivery);
 }
 
