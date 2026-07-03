@@ -501,8 +501,8 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(html, /<div class="user-management-grid">[\s\S]*<section class="admin-panel user-account-panel">[\s\S]*<h2>帳號密碼管理<\/h2>[\s\S]*<section id="userList" class="admin-list"><\/section>[\s\S]*<section class="admin-panel user-permission-panel">[\s\S]*<h2>權限指派<\/h2>/);
   assert.match(html, /<span>帳號<\/span>\s*<input id="userUsername" autocomplete="off" \/>/);
   assert.match(html, /<span>名稱<\/span>\s*<input id="userDisplayName" autocomplete="off" \/>/);
+  assert.match(html, /data-permission-row="deliveries"[\s\S]*配送狀態[\s\S]*name="permission-deliveries"[\s\S]*value="disabled"[\s\S]*禁用[\s\S]*name="permission-deliveries"[\s\S]*value="readonly"[\s\S]*唯讀[\s\S]*name="permission-deliveries"[\s\S]*value="full"[\s\S]*完整功能/);
   for (const [key, label] of [
-    ["deliveries", "配送狀態"],
     ["deleted", "刪除區"],
     ["upload", "匯入 Excel"],
     ["archive", "封存照片"],
@@ -512,7 +512,7 @@ test("admin user management has account and permission assignment panels", () =>
     assert.match(html, new RegExp(`data-permission-row="${key}"[\\s\\S]*${label}[\\s\\S]*name="permission-${key}"[\\s\\S]*value="enabled"[\\s\\S]*啟用[\\s\\S]*name="permission-${key}"[\\s\\S]*value="disabled"[\\s\\S]*禁用`));
   }
   assert.match(css, /\.user-management-grid\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(0,\s*1fr\);/);
-  assert.match(css, /\.permission-row\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto;/);
+  assert.match(css, /\.permission-row\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto auto auto;/);
   assert.match(css, /:root\s*\{[\s\S]*--admin-user-row-height:\s*34px;[\s\S]*--admin-user-font-size:\s*13px;/);
   assert.match(css, /\.user-form\s*\{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*2px;[\s\S]*align-items:\s*stretch;/);
   assert.match(css, /\.permission-row,[\s\S]*\.user-account-panel \.admin-card\s*\{[\s\S]*height:\s*var\(--admin-user-row-height\);[\s\S]*min-height:\s*var\(--admin-user-row-height\);[\s\S]*font-size:\s*var\(--admin-user-font-size\);/);
@@ -547,10 +547,25 @@ test("admin user management has account and permission assignment panels", () =>
   assert.match(adminJs, /card\.querySelector\("\.user-profile"\)\.textContent = \[/);
   assert.match(adminJs, /adminEls\.userDisplayName\.value = user\.display_name \|\| "";/);
   assert.match(adminJs, /user\.display_name \? `姓名 \$\{user\.display_name\}` : ""/);
+  assert.match(adminJs, /const ADMIN_PERMISSION_KEYS = \["deliveries", "delivery_actions", "deleted", "upload", "archive", "users", "driver"\];/);
   assert.match(adminJs, /function readUserPermissionControls\(\) \{/);
+  assert.match(adminJs, /permissions\.deliveries = deliveryMode !== "disabled";[\s\S]*permissions\.delivery_actions = deliveryMode === "full";/);
   assert.match(adminJs, /function setUserPermissionControls\(permissions, role = adminEls\.userRole\.value\) \{/);
+  assert.match(adminJs, /const deliveryMode = deliveryPermissionMode\(normalized\);[\s\S]*input\[name="permission-deliveries"\]\[value="\$\{deliveryMode\}"\]/);
   assert.match(adminJs, /permissions:\s*readUserPermissionControls\(\),/);
   assert.match(adminJs, /setUserPermissionControls\(user\.permissions, user\.role\);/);
+});
+
+test("admin delivery readonly permission hides mutating delivery controls", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /function hasDeliveryActionsPermission\(\) \{[\s\S]*return hasAdminPermission\("delivery_actions"\);[\s\S]*\}/);
+  assert.match(adminJs, /function syncDeliveryActionControls\(\) \{[\s\S]*adminEls\.bulkDeleteFiltered\.hidden = !hasDeliveryActionsPermission\(\);[\s\S]*\}/);
+  assert.match(adminJs, /applyAdminPermissions\(adminState\.permissions\);[\s\S]*syncDeliveryActionControls\(\);/);
+  assert.match(adminJs, /if \(!deleted && hasDeliveryActionsPermission\(\)\) \{[\s\S]*rowActions\.append\(makeAdminButton\("刪除", "danger-button", \(button\) => deleteDelivery\(delivery, button\)\)\);[\s\S]*\}/);
+  assert.match(adminJs, /if \(hasDeliveryActionsPermission\(\)\) \{[\s\S]*toolbar\.append\(rotateLeft, rotateRight, rotateError\);[\s\S]*\}/);
+  assert.match(adminJs, /const canRotate = hasDeliveryActionsPermission\(\);[\s\S]*adminEls\.photoRotateLeft\.hidden = !canRotate;[\s\S]*adminEls\.photoRotateRight\.hidden = !canRotate;/);
+  assert.match(adminJs, /if \(!hasDeliveryActionsPermission\(\)\) \{[\s\S]*setPhotoRotateError\([^,]+,\s*"此帳號未啟用配送狀態完整功能"\);[\s\S]*return;/);
 });
 
 test("admin menu only shows permissions enabled for the signed-in user", () => {

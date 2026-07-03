@@ -70,6 +70,7 @@ class UserPermissionTest(unittest.TestCase):
             users["admin"]["permissions"],
             {
                 "deliveries": True,
+                "delivery_actions": True,
                 "deleted": True,
                 "upload": True,
                 "archive": True,
@@ -81,6 +82,7 @@ class UserPermissionTest(unittest.TestCase):
             users["driver"]["permissions"],
             {
                 "deliveries": False,
+                "delivery_actions": False,
                 "deleted": False,
                 "upload": False,
                 "archive": False,
@@ -99,6 +101,7 @@ class UserPermissionTest(unittest.TestCase):
                 True,
                 {
                     "deliveries": True,
+                    "delivery_actions": False,
                     "deleted": False,
                     "upload": False,
                     "archive": False,
@@ -114,6 +117,7 @@ class UserPermissionTest(unittest.TestCase):
             user["permissions"],
             {
                 "deliveries": True,
+                "delivery_actions": False,
                 "deleted": False,
                 "upload": False,
                 "archive": False,
@@ -141,6 +145,20 @@ class UserPermissionTest(unittest.TestCase):
         self.assertEqual(listed["driver-a"]["display_name"], "王小明")
         self.assertTrue(ok, message)
         self.assertEqual(user["display_name"], "王小明")
+
+    def test_legacy_delivery_permission_defaults_to_full_actions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = UserStore(str(Path(temp_dir) / "users.json"), [])
+            user = store.upsert_user(
+                "legacy",
+                "admin",
+                "pass123",
+                True,
+                {"deliveries": True},
+            )
+
+        self.assertTrue(user["permissions"]["deliveries"])
+        self.assertTrue(user["permissions"]["delivery_actions"])
 
     def test_admin_user_api_saves_display_name(self):
         with running_permission_server([]) as address:
@@ -314,6 +332,90 @@ class UserPermissionTest(unittest.TestCase):
         self.assertEqual(payload["role"], "admin")
         self.assertTrue(payload["permissions"]["deliveries"])
         self.assertFalse(payload["permissions"]["users"])
+
+    def test_delivery_readonly_permission_can_view_but_cannot_mutate_records(self):
+        deliveries = [
+            {
+                "id": "delivery-1",
+                "sheet": "S",
+                "row": 1,
+                "seq": 1,
+                "vehicle_no": "RFW-3960",
+                "vehicle_no_normalized": "RFW-3960",
+                "driver": "Driver",
+                "delivery_date": "2026-06-30",
+                "date_folder": "20260630",
+                "customer": "Customer",
+                "address": "Address",
+                "company": "Company",
+                "invoice_no": "INV-1",
+                "status": "normal",
+                "photo_path": None,
+                "photo_updated_at": None,
+                "updated_at": None,
+                "deleted_at": None,
+                "deleted_by": None,
+            }
+        ]
+        with running_permission_server(
+            [
+                {
+                    "username": "readonly",
+                    "password": "pass123",
+                    "role": "admin",
+                    "permissions": {
+                        "deliveries": True,
+                        "delivery_actions": False,
+                        "deleted": False,
+                        "upload": False,
+                        "archive": False,
+                        "users": False,
+                        "driver": False,
+                    },
+                }
+            ],
+            deliveries,
+        ) as address:
+            _, login_content = request_json(
+                address,
+                "POST",
+                "/api/login",
+                {"username": "readonly", "password": "pass123", "login_context": "admin"},
+            )
+            token = json.loads(login_content)["token"]
+
+            list_status, list_content = request_json(
+                address,
+                "GET",
+                f"/api/admin/deliveries?token={token}&deleted=0",
+            )
+            delete_status, delete_content = request_json(
+                address,
+                "POST",
+                "/api/admin/deliveries/delivery-1/delete",
+                {"token": token},
+            )
+            bulk_delete_status, bulk_delete_content = request_json(
+                address,
+                "POST",
+                "/api/admin/deliveries/bulk-delete",
+                {"token": token, "delivery_ids": ["delivery-1"]},
+            )
+            rotate_status, rotate_content = request_json(
+                address,
+                "POST",
+                "/api/admin/deliveries/delivery-1/photo",
+                {"token": token, "status": "normal", "photo_data": "not-an-image"},
+            )
+
+        self.assertEqual(list_status, 200)
+        self.assertEqual(len(json.loads(list_content)["deliveries"]), 1)
+        self.assertEqual(delete_status, 403)
+        self.assertEqual(bulk_delete_status, 403)
+        self.assertEqual(rotate_status, 403)
+        self.assertIn("此帳號未啟用配送狀態完整功能", delete_content)
+        self.assertIn("此帳號未啟用配送狀態完整功能", bulk_delete_content)
+        self.assertIn("此帳號未啟用配送狀態完整功能", rotate_content)
 
     def test_admin_login_context_rejects_driver_without_vehicle_prompt(self):
         with running_permission_server(

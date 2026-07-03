@@ -1,4 +1,6 @@
-const ADMIN_PERMISSION_KEYS = ["deliveries", "deleted", "upload", "archive", "users", "driver"];
+const ADMIN_PERMISSION_KEYS = ["deliveries", "delivery_actions", "deleted", "upload", "archive", "users", "driver"];
+const DELIVERY_PERMISSION_VIEW_KEY = "deliveries";
+const DELIVERY_PERMISSION_ACTION_KEY = "delivery_actions";
 const ADMIN_VIEW_PERMISSIONS = {
   deliveries: "deliveries",
   deleted: "deleted",
@@ -8,6 +10,7 @@ const ADMIN_VIEW_PERMISSIONS = {
 };
 const ADMIN_PERMISSION_LABELS = {
   deliveries: "配送狀態",
+  delivery_actions: "配送狀態完整功能",
   deleted: "刪除區",
   upload: "匯入 Excel",
   archive: "封存照片",
@@ -17,6 +20,7 @@ const ADMIN_PERMISSION_LABELS = {
 const ADMIN_DEFAULT_PERMISSIONS = {
   admin: {
     deliveries: true,
+    delivery_actions: true,
     deleted: true,
     upload: true,
     archive: true,
@@ -25,6 +29,7 @@ const ADMIN_DEFAULT_PERMISSIONS = {
   },
   driver: {
     deliveries: false,
+    delivery_actions: false,
     deleted: false,
     upload: false,
     archive: false,
@@ -282,6 +287,12 @@ function normalizeAdminPermissions(permissions, role = "admin") {
       defaults[key] = Boolean(permissions[key]);
     }
   }
+  if (permissions.deliveries && !Object.prototype.hasOwnProperty.call(permissions, DELIVERY_PERMISSION_ACTION_KEY)) {
+    defaults.delivery_actions = true;
+  }
+  if (!defaults.deliveries) {
+    defaults.delivery_actions = false;
+  }
   return defaults;
 }
 
@@ -291,10 +302,19 @@ function applyAdminPermissions(permissions) {
   for (const button of adminEls.tabs) {
     button.hidden = !hasAdminPermission(button.dataset.permission);
   }
+  syncDeliveryActionControls();
 }
 
 function hasAdminPermission(permission) {
   return Boolean(adminState.permissions?.[permission]);
+}
+
+function hasDeliveryActionsPermission() {
+  return hasAdminPermission("delivery_actions");
+}
+
+function syncDeliveryActionControls() {
+  adminEls.bulkDeleteFiltered.hidden = !hasDeliveryActionsPermission();
 }
 
 function isAdminViewAllowed(view) {
@@ -486,7 +506,7 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
     if (deleted) {
       rowActions.append(makeAdminButton("還原", "secondary-button", (button) => restoreDelivery(delivery, button)));
       rowActions.append(makeAdminButton("永久刪除", "danger-button", (button) => permanentlyDelete(delivery, button)));
-    } else {
+    } else if (!deleted && hasDeliveryActionsPermission()) {
       rowActions.append(makeAdminButton("刪除", "danger-button", (button) => deleteDelivery(delivery, button)));
     }
     if (showInlinePhoto) {
@@ -509,9 +529,11 @@ function createAdminInlinePhoto(delivery, toolbar) {
   const rotateError = document.createElement("span");
   rotateError.className = "photo-rotate-error";
   rotateError.setAttribute("aria-live", "polite");
-  const rotateLeft = makePhotoIconButton("左轉90度", "↺", (button) => rotateAdminInlinePhoto(delivery, photo, -90, button, rotateError));
-  const rotateRight = makePhotoIconButton("右轉90度", "↻", (button) => rotateAdminInlinePhoto(delivery, photo, 90, button, rotateError));
-  toolbar.append(rotateLeft, rotateRight, rotateError);
+  if (hasDeliveryActionsPermission()) {
+    const rotateLeft = makePhotoIconButton("左轉90度", "↺", (button) => rotateAdminInlinePhoto(delivery, photo, -90, button, rotateError));
+    const rotateRight = makePhotoIconButton("右轉90度", "↻", (button) => rotateAdminInlinePhoto(delivery, photo, 90, button, rotateError));
+    toolbar.append(rotateLeft, rotateRight, rotateError);
+  }
 
   const viewport = document.createElement("div");
   viewport.className = "admin-inline-photo-viewport";
@@ -686,6 +708,10 @@ function downloadArchive(name) {
 }
 
 async function deleteDelivery(delivery, button) {
+  if (!hasDeliveryActionsPermission()) {
+    setAdminMessage("此帳號未啟用配送狀態完整功能", true);
+    return;
+  }
   if (!confirm(`確定刪除 ${delivery.invoice_no}？`)) {
     return;
   }
@@ -711,6 +737,10 @@ function currentDeliveryIds(deleted) {
 }
 
 async function bulkDeleteFilteredDeliveries() {
+  if (!hasDeliveryActionsPermission()) {
+    setAdminMessage("此帳號未啟用配送狀態完整功能", true);
+    return;
+  }
   const deliveryIds = currentDeliveryIds(false);
   if (deliveryIds.length === 0) {
     setAdminMessage("目前沒有可刪除的配送紀錄", true);
@@ -829,16 +859,30 @@ function renderAccountPermissions(permissions) {
   adminEls.accountPermissions.replaceChildren();
   const normalized = normalizeAdminPermissions(permissions, "admin");
   for (const key of ADMIN_PERMISSION_KEYS) {
+    if (key === DELIVERY_PERMISSION_ACTION_KEY) {
+      continue;
+    }
     const item = document.createElement("div");
     item.className = "account-permission-item";
     const label = document.createElement("span");
     label.textContent = ADMIN_PERMISSION_LABELS[key] || key;
     const state = document.createElement("span");
     state.className = "account-permission-state";
-    state.textContent = normalized[key] ? "啟用" : "禁用";
+    state.textContent = permissionStateText(key, normalized);
     item.append(label, state);
     adminEls.accountPermissions.append(item);
   }
+}
+
+function permissionStateText(key, permissions) {
+  if (key === DELIVERY_PERMISSION_VIEW_KEY) {
+    return deliveryPermissionMode(permissions) === "full"
+      ? "完整功能"
+      : deliveryPermissionMode(permissions) === "readonly"
+        ? "唯讀"
+        : "禁用";
+  }
+  return permissions[key] ? "啟用" : "禁用";
 }
 
 async function saveMyAccount() {
@@ -965,7 +1009,10 @@ function fillUserForm(user) {
 
 function readUserPermissionControls() {
   const permissions = {};
-  for (const key of ADMIN_PERMISSION_KEYS) {
+  const deliveryMode = document.querySelector(`input[name="permission-${DELIVERY_PERMISSION_VIEW_KEY}"]:checked`)?.value || "disabled";
+  permissions.deliveries = deliveryMode !== "disabled";
+  permissions.delivery_actions = deliveryMode === "full";
+  for (const key of ADMIN_PERMISSION_KEYS.filter((item) => item !== DELIVERY_PERMISSION_VIEW_KEY && item !== DELIVERY_PERMISSION_ACTION_KEY)) {
     const selected = document.querySelector(`input[name="permission-${key}"]:checked`);
     permissions[key] = selected ? selected.value === "enabled" : false;
   }
@@ -974,7 +1021,12 @@ function readUserPermissionControls() {
 
 function setUserPermissionControls(permissions, role = adminEls.userRole.value) {
   const normalized = normalizeAdminPermissions(permissions, role);
-  for (const key of ADMIN_PERMISSION_KEYS) {
+  const deliveryMode = deliveryPermissionMode(normalized);
+  const deliveryInput = document.querySelector(`input[name="permission-deliveries"][value="${deliveryMode}"]`);
+  if (deliveryInput) {
+    deliveryInput.checked = true;
+  }
+  for (const key of ADMIN_PERMISSION_KEYS.filter((item) => item !== DELIVERY_PERMISSION_VIEW_KEY && item !== DELIVERY_PERMISSION_ACTION_KEY)) {
     const value = normalized[key] ? "enabled" : "disabled";
     const input = document.querySelector(`input[name="permission-${key}"][value="${value}"]`);
     if (input) {
@@ -983,10 +1035,20 @@ function setUserPermissionControls(permissions, role = adminEls.userRole.value) 
   }
 }
 
+function deliveryPermissionMode(permissions) {
+  if (!permissions.deliveries) {
+    return "disabled";
+  }
+  return permissions.delivery_actions ? "full" : "readonly";
+}
+
 function openAdminPhoto(delivery) {
   adminState.photoDelivery = delivery;
   setAdminPhotoPreview(delivery);
   clearPhotoRotateError(adminEls.photoRotateError);
+  const canRotate = hasDeliveryActionsPermission();
+  adminEls.photoRotateLeft.hidden = !canRotate;
+  adminEls.photoRotateRight.hidden = !canRotate;
   adminEls.photoDialog.showModal();
 }
 
@@ -1004,6 +1066,10 @@ async function rotateAdminPhoto(degrees, button) {
   if (!adminState.photoDelivery) {
     return;
   }
+  if (!hasDeliveryActionsPermission()) {
+    setPhotoRotateError(adminEls.photoRotateError, "此帳號未啟用配送狀態完整功能");
+    return;
+  }
 
   await runPhotoRotateWithFailureMessage(button, adminEls.photoRotateError, async () => {
     const result = await saveRotatedAdminPhoto(adminState.photoDelivery, adminEls.photoPreview, degrees);
@@ -1014,6 +1080,10 @@ async function rotateAdminPhoto(degrees, button) {
 }
 
 async function rotateAdminInlinePhoto(delivery, image, degrees, button, errorEl) {
+  if (!hasDeliveryActionsPermission()) {
+    setPhotoRotateError(errorEl, "此帳號未啟用配送狀態完整功能");
+    return;
+  }
   await runPhotoRotateWithFailureMessage(button, errorEl, async () => {
     const result = await saveRotatedAdminPhoto(delivery, image, degrees);
     Object.assign(delivery, result.delivery);

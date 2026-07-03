@@ -15,10 +15,11 @@ from typing import Any
 LOCK_AFTER_FAILURES = 5
 LOCK_MINUTES = 10
 ROLES = {"driver", "admin"}
-PERMISSION_KEYS = ("deliveries", "deleted", "upload", "archive", "users", "driver")
+PERMISSION_KEYS = ("deliveries", "delivery_actions", "deleted", "upload", "archive", "users", "driver")
 ROLE_DEFAULT_PERMISSIONS = {
     "admin": {
         "deliveries": True,
+        "delivery_actions": True,
         "deleted": True,
         "upload": True,
         "archive": True,
@@ -27,6 +28,7 @@ ROLE_DEFAULT_PERMISSIONS = {
     },
     "driver": {
         "deliveries": False,
+        "delivery_actions": False,
         "deleted": False,
         "upload": False,
         "archive": False,
@@ -307,10 +309,16 @@ def normalize_permissions(value: Any, role: str) -> dict[str, bool]:
         for key in PERMISSION_KEYS:
             if key in value:
                 permissions[key] = bool(value[key])
+        if value.get("deliveries") and "delivery_actions" not in value:
+            permissions["delivery_actions"] = True
     elif isinstance(value, list):
         enabled = {str(item) for item in value}
         for key in PERMISSION_KEYS:
             permissions[key] = key in enabled
+        if "deliveries" in enabled and "delivery_actions" not in enabled:
+            permissions["delivery_actions"] = True
+    if not permissions.get("deliveries", False):
+        permissions["delivery_actions"] = False
     return permissions
 
 

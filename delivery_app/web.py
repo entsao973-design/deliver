@@ -305,7 +305,7 @@ class DeliveryServer:
 
             def _handle_admin_photo_save(self, delivery_id: str) -> None:
                 body = self._read_json(max_bytes=16 * 1024 * 1024)
-                if not self._admin_with_permission_from_body(body, "deliveries"):
+                if not self._admin_with_permission_from_body(body, "delivery_actions"):
                     return
 
                 try:
@@ -467,7 +467,7 @@ class DeliveryServer:
 
             def _handle_admin_delete(self, delivery_id: str) -> None:
                 body = self._read_json()
-                session = self._admin_with_permission_from_body(body, "deliveries")
+                session = self._admin_with_permission_from_body(body, "delivery_actions")
                 if not session:
                     return
                 try:
@@ -479,7 +479,7 @@ class DeliveryServer:
 
             def _handle_admin_bulk_delete(self) -> None:
                 body = self._read_json()
-                session = self._admin_with_permission_from_body(body, "deliveries")
+                session = self._admin_with_permission_from_body(body, "delivery_actions")
                 if not session:
                     return
                 delivery_ids = body.get("delivery_ids", [])
@@ -695,6 +695,9 @@ class DeliveryServer:
                 if permissions is None:
                     return session
                 if not permissions.get(permission, False):
+                    if permission == "delivery_actions":
+                        self._json_error(HTTPStatus.FORBIDDEN, "此帳號未啟用配送狀態完整功能")
+                        return None
                     self._json_error(HTTPStatus.FORBIDDEN, "此帳號未啟用此功能權限")
                     return None
                 return session
