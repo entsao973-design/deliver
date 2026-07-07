@@ -278,6 +278,18 @@ test("admin rotated photo save preserves original photo time", () => {
   assert.match(adminJs, /async function saveRotatedAdminPhoto\(delivery, image, degrees\) \{[\s\S]*captured_at:\s*delivery\.photo_updated_at \|\| ""/);
 });
 
+test("admin rotated photo refreshes image cache without changing displayed photo time", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /photoRefreshToken:\s*0/);
+  assert.match(adminJs, /adminEls\.photoTitle\.textContent = [^\n]*delivery\.photo_updated_at[^\n]*;/);
+  assert.match(adminJs, /card\.querySelector\("\.admin-photo-time"\)\.textContent = showInlinePhoto \? `照片時間：\$\{formatPhotoTime\(delivery\.photo_updated_at\)\}` : "";/);
+  assert.match(adminJs, /const stamp = encodeURIComponent\(\[\s*delivery\.photo_updated_at \|\| "",\s*delivery\.updated_at \|\| "",\s*adminState\.photoRefreshToken,\s*\]\.join\("\|"\)\);/);
+  assert.match(adminJs, /function bumpAdminPhotoRefreshToken\(\) \{[\s\S]*adminState\.photoRefreshToken \+= 1;[\s\S]*\}/);
+  assert.match(adminJs, /const result = await saveRotatedAdminPhoto\(adminState\.photoDelivery, adminEls\.photoPreview, degrees\);[\s\S]*bumpAdminPhotoRefreshToken\(\);[\s\S]*adminState\.photoDelivery = result\.delivery;[\s\S]*setAdminPhotoPreview\(result\.delivery\);/);
+  assert.match(adminJs, /const result = await saveRotatedAdminPhoto\(delivery, image, degrees\);[\s\S]*Object\.assign\(delivery, result\.delivery\);[\s\S]*bumpAdminPhotoRefreshToken\(\);[\s\S]*setAdminPhotoSource\(image, result\.delivery\);/);
+});
+
 test("admin clears status messages on login and query", () => {
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 

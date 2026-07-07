@@ -50,6 +50,7 @@ const adminState = {
   archiveRequestId: 0,
   showAllPhotos: false,
   photoDelivery: null,
+  photoRefreshToken: 0,
 };
 
 const adminEls = {
@@ -1058,7 +1059,11 @@ function setAdminPhotoPreview(delivery) {
 }
 
 function setAdminPhotoSource(image, delivery) {
-  const stamp = encodeURIComponent(delivery.photo_updated_at || Date.now());
+  const stamp = encodeURIComponent([
+    delivery.photo_updated_at || "",
+    delivery.updated_at || "",
+    adminState.photoRefreshToken,
+  ].join("|"));
   image.src = `/api/deliveries/${delivery.id}/photo?token=${encodeURIComponent(adminState.token)}&t=${stamp}`;
 }
 
@@ -1073,6 +1078,7 @@ async function rotateAdminPhoto(degrees, button) {
 
   await runPhotoRotateWithFailureMessage(button, adminEls.photoRotateError, async () => {
     const result = await saveRotatedAdminPhoto(adminState.photoDelivery, adminEls.photoPreview, degrees);
+    bumpAdminPhotoRefreshToken();
     adminState.photoDelivery = result.delivery;
     setAdminPhotoPreview(result.delivery);
     await loadDeliveries(adminState.view === "deleted");
@@ -1087,12 +1093,17 @@ async function rotateAdminInlinePhoto(delivery, image, degrees, button, errorEl)
   await runPhotoRotateWithFailureMessage(button, errorEl, async () => {
     const result = await saveRotatedAdminPhoto(delivery, image, degrees);
     Object.assign(delivery, result.delivery);
+    bumpAdminPhotoRefreshToken();
     setAdminPhotoSource(image, result.delivery);
     if (adminState.photoDelivery && adminState.photoDelivery.id === result.delivery.id) {
       adminState.photoDelivery = result.delivery;
       setAdminPhotoPreview(result.delivery);
     }
   });
+}
+
+function bumpAdminPhotoRefreshToken() {
+  adminState.photoRefreshToken += 1;
 }
 
 async function runPhotoRotateWithFailureMessage(button, errorEl, operation) {
