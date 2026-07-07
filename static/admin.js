@@ -1132,6 +1132,7 @@ async function saveRotatedAdminPhoto(delivery, image, degrees) {
       token: adminState.token,
       status: delivery.status || "normal",
       photo_data: photoData,
+      captured_at: delivery.photo_updated_at || "",
     },
   });
 }

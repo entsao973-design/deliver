@@ -270,6 +270,14 @@ test("admin photo dialog supports ctrl wheel zoom and immediate rotate save", ()
   assert.match(webPy, /def _handle_admin_photo_save\(self, delivery_id: str\)/);
 });
 
+test("admin rotated photo save preserves original photo time", () => {
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(adminJs, /const result = await saveRotatedAdminPhoto\(adminState\.photoDelivery, adminEls\.photoPreview, degrees\);/);
+  assert.match(adminJs, /const result = await saveRotatedAdminPhoto\(delivery, image, degrees\);/);
+  assert.match(adminJs, /async function saveRotatedAdminPhoto\(delivery, image, degrees\) \{[\s\S]*captured_at:\s*delivery\.photo_updated_at \|\| ""/);
+});
+
 test("admin clears status messages on login and query", () => {
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
