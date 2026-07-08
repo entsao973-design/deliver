@@ -490,6 +490,7 @@ function renderDeliveries(container, deliveries, deleted, hideDeliveryDate = fal
       hideDeliveryDate ? "" : delivery.delivery_date,
       delivery.company,
       delivery.invoice_no,
+      delivery.quantity ? `數量：${delivery.quantity}` : "",
     ].filter(Boolean).join(" | ");
     card.querySelector(".admin-photo-time").textContent = showInlinePhoto ? `照片時間：${formatPhotoTime(delivery.photo_updated_at)}` : "";
     card.querySelector(".admin-route").textContent = [delivery.driver, delivery.vehicle_no].filter(Boolean).join(" | ");

@@ -506,7 +506,7 @@ test("admin delivery list uses full width compact rows", () => {
   assert.match(adminJs, /renderDeliveries\(listEl, result\.deliveries, deleted, hideDeliveryDate\);/);
   assert.match(adminJs, /function renderDeliveries\(container, deliveries, deleted, hideDeliveryDate = false\)/);
   assert.match(adminJs, /<div class="admin-inline-photo-left">\s*<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<\/div>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<div class="admin-inline-photo-right">\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-row-actions"><\/div>\s*<\/div>/);
-  assert.match(adminJs, /card\.querySelector\("\.admin-document"\)\.textContent = \[[\s\S]*hideDeliveryDate \? "" : delivery\.delivery_date,[\s\S]*delivery\.company,[\s\S]*delivery\.invoice_no,[\s\S]*\]\.filter\(Boolean\)\.join\(" \\| "\);/);
+  assert.match(adminJs, /card\.querySelector\("\.admin-document"\)\.textContent = \[\s*hideDeliveryDate \? "" : delivery\.delivery_date,\s*delivery\.company,\s*delivery\.invoice_no,\s*delivery\.quantity \? `數量：\$\{delivery\.quantity\}` : "",\s*\]\.filter\(Boolean\)\.join\(" \| "\);/);
   assert.match(adminJs, /card\.querySelector\("\.admin-route"\)\.textContent = \[delivery\.driver, delivery\.vehicle_no\]\.filter\(Boolean\)\.join\(" \\| "\);/);
 });
 
