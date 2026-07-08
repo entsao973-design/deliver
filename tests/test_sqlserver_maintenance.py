@@ -80,6 +80,8 @@ class SqlServerMaintenanceTest(unittest.TestCase):
         SqlServerBase._ensure_schema(base)
 
         combined_sql = "\n".join(sql for sql, _params in cursor.executions)
+        self.assertIn("quantity", DELIVERY_FIELDS)
+        self.assertIn("quantity nvarchar", combined_sql)
         self.assertIn("DROP INDEX UX_deliveries_invoice_no", combined_sql)
         self.assertIn("UX_deliveries_invoice_no_delivery_date", combined_sql)
         self.assertIn("CREATE UNIQUE INDEX UX_deliveries_invoice_no_delivery_date", combined_sql)
@@ -113,6 +115,7 @@ class SqlServerMaintenanceTest(unittest.TestCase):
             self.assertEqual(summary["inserted"], 1)
             self.assertEqual(summary["locked_delivered"], 0)
             self.assertIn("INSERT INTO dbo.deliveries", executed_sql)
+            self.assertIn("quantity", executed_sql)
 
     def test_cleanup_delivery_history_deletes_inclusive_range_and_commits(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -270,6 +273,7 @@ def make_sql_delivery_row(
         "geocode_error": None,
         "company": company,
         "invoice_no": f"INV-{record_id}",
+        "quantity": "5箱",
         "status": "normal",
         "photo_path": None,
         "photo_updated_at": None,
@@ -307,6 +311,7 @@ def make_imported_delivery_record(
         "geocode_error": None,
         "company": company,
         "invoice_no": f"INV-{record_id}",
+        "quantity": "5箱",
         "status": None,
         "photo_path": None,
         "photo_updated_at": None,

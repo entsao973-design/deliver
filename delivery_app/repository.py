@@ -601,6 +601,7 @@ class DeliveryRepository:
             "address": record.get("address", ""),
             "company": record["company"],
             "invoice_no": record["invoice_no"],
+            "quantity": record.get("quantity", ""),
             **geocode_fields,
             "status": status,
             "status_label": STATUS_LABELS.get(status, "未達交"),
@@ -649,6 +650,7 @@ class DeliveryRepository:
             "address",
             "company",
             "invoice_no",
+            "quantity",
         )
         return all(existing.get(field) == imported.get(field) for field in fields)
 

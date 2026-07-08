@@ -38,8 +38,10 @@ def build_delivery_workbook(path: Path) -> None:
     sheet["A5"] = 1
     sheet["C5"] = "台北市中山區測試路1號"
     sheet["B5"] = "合併客戶"
+    sheet["G5"] = "12箱"
     sheet["I5"] = "公司甲"
     sheet["K5"] = "INV-MERGED-1"
+    sheet["G6"] = "2箱"
     sheet["I6"] = "公司乙"
     sheet["K6"] = "INV-MERGED-2"
     sheet["A7"] = "備註"
@@ -47,12 +49,14 @@ def build_delivery_workbook(path: Path) -> None:
     sheet["A8"] = 2
     sheet["C8"] = "新北市板橋區測試路2號"
     sheet["B8"] = "第二客戶"
+    sheet["G8"] = 3
     sheet["I8"] = "公司丙"
     sheet["K8"] = "INV-2"
     sheet["A9"] = None
     sheet["K9"] = "IGNORED-BLANK"
     sheet["A10"] = 3
     sheet["B10"] = "第三客戶"
+    sheet["G10"] = ""
     sheet["I10"] = "公司丁"
     sheet["K10"] = "INV-3"
     workbook.save(path)
@@ -217,6 +221,19 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertEqual(invoices["INV-MERGED-2"]["address"], "台北市中山區測試路1號")
             self.assertEqual(invoices["INV-2"]["address"], "新北市板橋區測試路2號")
 
+    def test_imports_quantity_from_excel_g_column(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "merged.xlsx"
+            build_delivery_workbook(excel_path)
+
+            result = import_deliveries(excel_path)
+            invoices = {record["invoice_no"]: record for record in result["deliveries"]}
+
+            self.assertEqual(invoices["INV-MERGED-1"]["quantity"], "12箱")
+            self.assertEqual(invoices["INV-MERGED-2"]["quantity"], "2箱")
+            self.assertEqual(invoices["INV-2"]["quantity"], "3")
+            self.assertEqual(invoices["INV-3"]["quantity"], "")
+
     def test_import_adds_geocode_defaults(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             excel_path = Path(temp_dir) / "merged.xlsx"
@@ -241,6 +258,7 @@ class ImporterRulesTest(unittest.TestCase):
             by_invoice = {record["invoice_no"]: record for record in deliveries}
 
             self.assertEqual(by_invoice["INV-MERGED-1"]["address"], "台北市中山區測試路1號")
+            self.assertEqual(by_invoice["INV-MERGED-1"]["quantity"], "12箱")
             self.assertEqual(by_invoice["INV-MERGED-1"]["geocode_status"], GEOCODE_PENDING)
             self.assertIsNone(by_invoice["INV-MERGED-1"]["geocode_lat"])
 

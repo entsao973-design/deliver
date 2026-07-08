@@ -75,6 +75,7 @@ DELIVERY_FIELDS = (
     "geocode_error",
     "company",
     "invoice_no",
+    "quantity",
     "status",
     "photo_path",
     "photo_updated_at",
@@ -105,6 +106,7 @@ CONVERT(varchar(19), geocode_updated_at, 126) AS geocode_updated_at,
 geocode_error,
 company,
 invoice_no,
+quantity,
 status,
 photo_path,
 CONVERT(varchar(19), photo_updated_at, 126) AS photo_updated_at,
@@ -127,6 +129,7 @@ IMPORTED_FIELDS = (
     "address",
     "company",
     "invoice_no",
+    "quantity",
 )
 
 
@@ -215,6 +218,7 @@ BEGIN
         geocode_error nvarchar(500) NULL,
         company nvarchar(255) NOT NULL,
         invoice_no nvarchar(255) NOT NULL,
+        quantity nvarchar(255) NOT NULL CONSTRAINT DF_deliveries_quantity DEFAULT N'',
         status nvarchar(20) NULL,
         photo_path nvarchar(1024) NULL,
         photo_updated_at datetime2(0) NULL,
@@ -263,6 +267,10 @@ END
 IF COL_LENGTH(N'dbo.deliveries', N'geocode_error') IS NULL
 BEGIN
     ALTER TABLE dbo.deliveries ADD geocode_error nvarchar(500) NULL;
+END
+IF COL_LENGTH(N'dbo.deliveries', N'quantity') IS NULL
+BEGIN
+    ALTER TABLE dbo.deliveries ADD quantity nvarchar(255) NOT NULL CONSTRAINT DF_deliveries_quantity DEFAULT N'';
 END
 """
             )
@@ -1207,9 +1215,9 @@ INSERT INTO dbo.deliveries (
     delivery_date, date_folder, customer, address, normalized_address,
     geocode_lat, geocode_lng, geocode_status, geocode_provider,
     geocode_place_id, geocode_updated_at, geocode_error,
-    company, invoice_no, status,
+    company, invoice_no, quantity, status,
     photo_path, photo_updated_at, updated_at, deleted_at, deleted_by
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """,
             record["id"],
             record.get("sheet") or "",
@@ -1232,6 +1240,7 @@ INSERT INTO dbo.deliveries (
             record.get("geocode_error"),
             record.get("company") or "",
             record.get("invoice_no") or "",
+            record.get("quantity") or "",
             record.get("status"),
             record.get("photo_path"),
             to_datetime(record.get("photo_updated_at")),
@@ -1266,6 +1275,7 @@ SET id = ?,
     geocode_error = ?,
     company = ?,
     invoice_no = ?,
+    quantity = ?,
     status = ?,
     photo_path = ?,
     photo_updated_at = ?,
@@ -1295,6 +1305,7 @@ WHERE id = ?
             record.get("geocode_error"),
             record.get("company") or "",
             record.get("invoice_no") or "",
+            record.get("quantity") or "",
             record.get("status"),
             record.get("photo_path"),
             to_datetime(record.get("photo_updated_at")),
@@ -1329,6 +1340,7 @@ SET id = ?,
     geocode_updated_at = ?,
     geocode_error = ?,
     company = ?,
+    quantity = ?,
     updated_at = ?
 WHERE id = ?
   AND status IS NULL
@@ -1353,6 +1365,7 @@ WHERE id = ?
             to_datetime(record.get("geocode_updated_at")),
             record.get("geocode_error"),
             record.get("company") or "",
+            record.get("quantity") or "",
             datetime.now().replace(microsecond=0),
             current_id,
         )
@@ -1945,6 +1958,7 @@ def public_delivery(record: dict[str, Any]) -> dict[str, Any]:
         "address": record.get("address", ""),
         "company": record["company"],
         "invoice_no": record["invoice_no"],
+        "quantity": record.get("quantity", ""),
         **geocode_fields,
         "status": status,
         "status_label": STATUS_LABELS.get(status, "未達交"),
@@ -1988,6 +2002,7 @@ def normalize_delivery_record(record: dict[str, Any]) -> dict[str, Any]:
     normalized["geocode_lng"] = optional_float(normalized.get("geocode_lng"))
     normalized["company"] = str(normalized.get("company") or "")
     normalized["invoice_no"] = str(normalized.get("invoice_no") or "")
+    normalized["quantity"] = str(normalized.get("quantity") or "")
     normalized["sheet"] = str(normalized.get("sheet") or "")
     return normalized
 

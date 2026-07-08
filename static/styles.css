@@ -622,6 +622,12 @@ select:focus {
   font-weight: 600;
 }
 
+.delivery-screen .quantity {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

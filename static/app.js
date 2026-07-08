@@ -332,6 +332,7 @@ function renderCard(delivery) {
       <div class="meta-line">
         <span class="invoice"></span>
         <span class="company"></span>
+        <span class="quantity"></span>
       </div>
       <div class="meta-line updated-line"></div>
     </div>
@@ -342,6 +343,9 @@ function renderCard(delivery) {
   card.querySelector(".badge").textContent = delivery.status_label;
   card.querySelector(".invoice").textContent = delivery.invoice_no;
   card.querySelector(".company").textContent = delivery.company;
+  const quantityText = delivery.quantity ? `數量：${delivery.quantity}` : "";
+  card.querySelector(".quantity").textContent = quantityText;
+  card.querySelector(".quantity").hidden = !quantityText;
   card.querySelector(".updated-line").textContent = delivery.photo_updated_at
     ? `照片時間 ${delivery.photo_updated_at.replace("T", " ")}`
     : "";

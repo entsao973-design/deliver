@@ -204,6 +204,7 @@ def import_deliveries_direct(excel_path: str | Path, existing_records: list[dict
                 customer = current_customer
                 address = current_address
                 company = current_company
+                quantity = clean_text(sheet.cell(row_index, 7).value)
                 invoice_no = clean_text(sheet.cell(row_index, 11).value)
                 if not invoice_no:
                     continue
@@ -226,6 +227,7 @@ def import_deliveries_direct(excel_path: str | Path, existing_records: list[dict
                     **default_geocode_fields(address),
                     "company": company,
                     "invoice_no": invoice_no,
+                    "quantity": quantity,
                     "status": None,
                     "photo_path": None,
                     "photo_updated_at": None,

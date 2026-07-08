@@ -114,6 +114,15 @@ test("driver delivery card emphasizes invoice and company text", () => {
   assert.match(css, /\.delivery-screen \.company\s*\{[\s\S]*color:\s*#000000;[\s\S]*font-size:\s*16px;[\s\S]*font-weight:\s*600;/);
 });
 
+test("driver delivery card shows quantity beside invoice and company only when present", () => {
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+
+  assert.match(appJs, /<div class="meta-line">\s*<span class="invoice"><\/span>\s*<span class="company"><\/span>\s*<span class="quantity"><\/span>\s*<\/div>/);
+  assert.match(appJs, /const quantityText = delivery\.quantity \? `數量：\$\{delivery\.quantity\}` : "";/);
+  assert.match(appJs, /card\.querySelector\("\.quantity"\)\.textContent = quantityText;/);
+  assert.match(appJs, /card\.querySelector\("\.quantity"\)\.hidden = !quantityText;/);
+});
+
 test("driver scan invoice button replaces refresh in summary and refresh moves to header", () => {
   const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
