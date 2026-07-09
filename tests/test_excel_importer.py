@@ -63,6 +63,18 @@ def build_delivery_workbook(path: Path) -> None:
     workbook.close()
 
 
+def build_duplicate_quantity_workbook(path: Path) -> None:
+    build_delivery_workbook(path)
+    workbook = openpyxl.load_workbook(path)
+    sheet = workbook.active
+    sheet["G5"] = 12
+    sheet["K6"] = "INV-MERGED-1"
+    sheet["G6"] = 3
+    sheet["I6"] = ""
+    workbook.save(path)
+    workbook.close()
+
+
 @unittest.skipUnless(SAMPLE_EXCEL.exists(), "sample Excel file not found")
 class ExcelImporterTest(unittest.TestCase):
     def test_imports_delivery_sheets(self):
@@ -233,6 +245,32 @@ class ImporterRulesTest(unittest.TestCase):
             self.assertEqual(invoices["INV-MERGED-2"]["quantity"], "2箱")
             self.assertEqual(invoices["INV-2"]["quantity"], "3")
             self.assertEqual(invoices["INV-3"]["quantity"], "")
+
+    def test_import_sums_quantity_for_duplicate_delivery_attributes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "duplicate-quantity.xlsx"
+            build_duplicate_quantity_workbook(excel_path)
+
+            result = import_deliveries(excel_path)
+            matching = [record for record in result["deliveries"] if record["invoice_no"] == "INV-MERGED-1"]
+
+            self.assertEqual(len(matching), 1)
+            self.assertEqual(matching[0]["quantity"], "15")
+
+    def test_reimport_of_duplicate_quantity_workbook_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            excel_path = Path(temp_dir) / "duplicate-quantity.xlsx"
+            data_file = Path(temp_dir) / "deliveries.json"
+            build_duplicate_quantity_workbook(excel_path)
+            repo = DeliveryRepository(str(excel_path), str(data_file), str(Path(temp_dir) / "photos"))
+
+            summary = repo.import_excel_file(excel_path)
+            refreshed = json.loads(data_file.read_text(encoding="utf-8"))["deliveries"]
+            matching = [record for record in refreshed if record["invoice_no"] == "INV-MERGED-1"]
+
+            self.assertEqual(summary["updated"], 0)
+            self.assertEqual(len(matching), 1)
+            self.assertEqual(matching[0]["quantity"], "15")
 
     def test_import_adds_geocode_defaults(self):
         with tempfile.TemporaryDirectory() as temp_dir:

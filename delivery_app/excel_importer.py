@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from decimal import Decimal, InvalidOperation
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,16 @@ from .import_diagnostics import dump_traceback_if_slow, write_import_log
 ROOT_DIR = Path(__file__).resolve().parent.parent
 WORKER_LOG = ROOT_DIR / "server.import.worker.log"
 DEFAULT_WORKER_TIMEOUT_SECONDS = 120
+QUANTITY_MERGE_FIELDS = (
+    "vehicle_no_normalized",
+    "driver",
+    "delivery_date",
+    "date_folder",
+    "customer",
+    "address",
+    "company",
+    "invoice_no",
+)
 
 
 def clean_text(value: Any) -> str:
@@ -245,12 +256,64 @@ def import_deliveries_direct(excel_path: str | Path, existing_records: list[dict
         workbook.close()
         write_import_log("workbook_closed", path=excel_path)
 
+    raw_count = len(deliveries)
+    deliveries = merge_duplicate_delivery_quantities(deliveries)
+    if len(deliveries) != raw_count:
+        write_import_log("excel_importer_quantity_merged", before=raw_count, after=len(deliveries))
     write_import_log("excel_importer_done", records=len(deliveries))
     return {
         "source_excel": str(excel_path),
         "imported_at": datetime.now().isoformat(timespec="seconds"),
         "deliveries": deliveries,
     }
+
+
+def merge_duplicate_delivery_quantities(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    by_key: dict[tuple[str, ...], dict[str, Any]] = {}
+    for record in records:
+        key = tuple(str(record.get(field) or "") for field in QUANTITY_MERGE_FIELDS)
+        existing = by_key.get(key)
+        if existing is None:
+            by_key[key] = record
+            merged.append(record)
+            continue
+
+        existing["quantity"] = merge_quantity_text(existing.get("quantity", ""), record.get("quantity", ""))
+    return merged
+
+
+def merge_quantity_text(left: Any, right: Any) -> str:
+    left_text = clean_text(left)
+    right_text = clean_text(right)
+    if not left_text:
+        return right_text
+    if not right_text:
+        return left_text
+
+    left_quantity = parse_quantity_text(left_text)
+    right_quantity = parse_quantity_text(right_text)
+    if left_quantity and right_quantity and left_quantity[1] == right_quantity[1]:
+        return f"{format_quantity_amount(left_quantity[0] + right_quantity[0])}{left_quantity[1]}"
+
+    return f"{left_text} + {right_text}"
+
+
+def parse_quantity_text(value: str) -> tuple[Decimal, str] | None:
+    match = re.fullmatch(r"([+-]?(?:\d+(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(.*)", value)
+    if not match:
+        return None
+    try:
+        amount = Decimal(match.group(1).replace(",", ""))
+    except InvalidOperation:
+        return None
+    return amount, match.group(2).strip()
+
+
+def format_quantity_amount(amount: Decimal) -> str:
+    if amount == amount.to_integral_value():
+        return str(amount.quantize(Decimal("1")))
+    return format(amount.normalize(), "f")
 
 
 def merged_sequence_rows(sheet) -> dict[int, Any]:
