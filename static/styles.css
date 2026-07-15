@@ -439,12 +439,17 @@ select:focus {
 }
 
 #refreshButton,
-#logoutButton,
-#smartPhotoButton,
-#scanInvoiceButton {
+#logoutButton {
   align-self: center;
   height: calc(var(--driver-control-panel-height) * 0.8);
   min-height: calc(var(--driver-control-panel-height) * 0.8);
+}
+
+#smartPhotoButton,
+#scanInvoiceButton {
+  align-self: stretch;
+  height: 100%;
+  min-height: 0;
 }
 
 .toggle-row {
