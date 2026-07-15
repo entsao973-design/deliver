@@ -405,6 +405,10 @@ select:focus {
   font-size: 11px;
 }
 
+.delivery-screen .summary-strip .summary-toggles span {
+  font-size: 12px;
+}
+
 .delivery-screen .summary-strip .toggle-row {
   white-space: nowrap;
 }
@@ -413,13 +417,15 @@ select:focus {
   width: 15px;
   height: 15px;
   min-height: 15px;
+  margin: 0;
 }
 
 .summary-toggles {
   display: grid;
-  align-content: center;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  align-content: stretch;
   justify-items: start;
-  gap: 1px;
+  gap: 0;
 }
 
 .summary-actions {
@@ -1099,7 +1105,7 @@ select:focus {
   .delivery-screen .summary-toggles {
     grid-template-columns: 1fr;
     justify-content: stretch;
-    gap: 1px;
+    gap: 0;
   }
 
   .summary-counts {
