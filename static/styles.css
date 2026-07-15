@@ -410,8 +410,9 @@ select:focus {
 }
 
 .delivery-screen .summary-strip .toggle-row input {
-  width: 18px;
-  min-height: 18px;
+  width: 15px;
+  height: 15px;
+  min-height: 15px;
 }
 
 .summary-toggles {
@@ -419,12 +420,6 @@ select:focus {
   align-content: center;
   justify-items: start;
   gap: 1px;
-}
-
-.delivery-screen .summary-strip .photo-clarity-toggle input {
-  width: 14px;
-  height: 14px;
-  min-height: 14px;
 }
 
 .summary-actions {
