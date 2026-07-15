@@ -64,6 +64,21 @@ test("driver remembered login includes password and vehicle", () => {
   assert.match(appJs, /localStorage\.setItem\("delivery_remembered_login", JSON\.stringify\(\{[\s\S]*username,[\s\S]*password,[\s\S]*vehicle_no: vehicleNo,[\s\S]*\}\)\);/);
 });
 
+test("driver photo clarity check is opt-in, remembered, and warns before upload", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+
+  assert.match(html, /<input id="hideDoneToggle" type="checkbox" checked \/>[\s\S]*<input id="photoClarityToggle" type="checkbox" \/>\s*<span>拍照後檢查清晰度<\/span>[\s\S]*<input id="showAllPhotosToggle" type="checkbox" \/>/);
+  assert.doesNotMatch(html, /id="photoClarityToggle"[^>]*checked/);
+  assert.match(html, /<dialog id="photoClarityDialog"[^>]*>[\s\S]*照片可能模糊，重拍或仍然接受。[\s\S]*<button id="photoClarityRetake"[^>]*>重拍<\/button>[\s\S]*<button id="photoClarityAccept"[^>]*>仍然接受<\/button>/);
+  assert.match(html, /<script src="\/static\/photo-quality\.js"><\/script>[\s\S]*<script src="\/static\/app\.js" defer><\/script>/);
+  assert.match(appJs, /photoClarityEnabled:\s*false/);
+  assert.match(appJs, /PhotoQuality\.loadEnabled\(localStorage, state\.username\)/);
+  assert.match(appJs, /PhotoQuality\.saveEnabled\(localStorage, state\.username, state\.photoClarityEnabled\)/);
+  assert.match(appJs, /await PhotoQuality\.analyzeDataUrl\(dataUrl\)/);
+  assert.match(appJs, /if \(clarity\.possibly_blurry\) \{[\s\S]*await requestPhotoClarityDecision\(\)/);
+});
+
 test("driver delivery controls stay fixed while the list scrolls", () => {
   const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");

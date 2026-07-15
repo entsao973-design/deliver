@@ -22,6 +22,7 @@ test("PWA app version matches service worker cache and shell assets", () => {
     "/static/driver-smart-delivery.js",
     "/static/scan-invoice.js",
     "/static/driver-scan-delivery.js",
+    "/static/photo-quality.js",
     "/static/admin-operation-state.js",
   ]) {
     assert.match(workerJs, new RegExp(`"${escapeRegExp(asset)}"`));

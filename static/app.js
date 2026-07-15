@@ -1,7 +1,9 @@
 const DRIVER_DATE_OPTION_LIMIT = 10;
+const PhotoQuality = window.PhotoQuality;
 
 const state = {
   token: localStorage.getItem("delivery_token") || "",
+  username: localStorage.getItem("delivery_username") || "",
   profile: JSON.parse(localStorage.getItem("delivery_profile") || "null"),
   deliveries: [],
   counts: { open: 0, done: 0, total: 0 },
@@ -13,6 +15,7 @@ const state = {
   pendingUploads: [],
   syncInProgress: false,
   dialogDelivery: null,
+  photoClarityEnabled: false,
 };
 
 const els = {
@@ -38,6 +41,7 @@ const els = {
   openCount: document.querySelector("#openCount"),
   doneCount: document.querySelector("#doneCount"),
   hideDoneToggle: document.querySelector("#hideDoneToggle"),
+  photoClarityToggle: document.querySelector("#photoClarityToggle"),
   showAllPhotosToggle: document.querySelector("#showAllPhotosToggle"),
   smartPhotoButton: document.querySelector("#smartPhotoButton"),
   scanInvoiceButton: document.querySelector("#scanInvoiceButton"),
@@ -47,6 +51,9 @@ const els = {
   message: document.querySelector("#message"),
   deliveryList: document.querySelector("#deliveryList"),
   photoInput: document.querySelector("#photoInput"),
+  photoClarityDialog: document.querySelector("#photoClarityDialog"),
+  photoClarityRetake: document.querySelector("#photoClarityRetake"),
+  photoClarityAccept: document.querySelector("#photoClarityAccept"),
   scanInvoiceInput: document.querySelector("#scanInvoiceInput"),
   scanInvoiceDialog: document.querySelector("#scanInvoiceDialog"),
   scanInvoiceViewport: document.querySelector("#scanInvoiceViewport"),
@@ -72,6 +79,10 @@ const els = {
   smartPhotoStatusAbnormal: document.querySelector("#smartPhotoStatusAbnormal"),
   smartPhotoCandidates: document.querySelector("#smartPhotoCandidates"),
 };
+
+state.photoClarityEnabled = PhotoQuality.loadEnabled(localStorage, state.username);
+els.photoClarityToggle.checked = state.photoClarityEnabled;
+let resolvePhotoClarityDecision = null;
 
 createPhotoViewer({
   dialog: els.photoDialog,
@@ -111,7 +122,9 @@ els.loginForm.addEventListener("submit", async (event) => {
   try {
     const result = await api("/api/login", { method: "POST", body: payload });
     state.token = result.token;
+    state.username = payload.username;
     localStorage.setItem("delivery_token", state.token);
+    localStorage.setItem("delivery_username", state.username);
     localStorage.setItem("delivery_role", result.role);
     localStorage.setItem("delivery_permissions", JSON.stringify(result.permissions || {}));
     saveRememberedLogin(payload.username, payload.password, payload.vehicle_no);
@@ -126,6 +139,8 @@ els.loginForm.addEventListener("submit", async (event) => {
     state.counts = result.counts;
     state.dates = result.dates || [];
     state.selectedDate = result.selected_date || "";
+    state.photoClarityEnabled = PhotoQuality.loadEnabled(localStorage, state.username);
+    els.photoClarityToggle.checked = state.photoClarityEnabled;
     localStorage.setItem("delivery_profile", JSON.stringify(state.profile));
     localStorage.setItem("delivery_selected_date", state.selectedDate);
     setMessage("");
@@ -179,6 +194,10 @@ els.vehicleNo.addEventListener("input", () => {
 });
 
 els.hideDoneToggle.addEventListener("change", loadDeliveries);
+els.photoClarityToggle.addEventListener("change", () => {
+  state.photoClarityEnabled = els.photoClarityToggle.checked;
+  PhotoQuality.saveEnabled(localStorage, state.username, state.photoClarityEnabled);
+});
 els.showAllPhotosToggle.addEventListener("change", renderDeliveries);
 els.smartPhotoButton.addEventListener("click", smartDeliveryController.handleSmartPhoto);
 els.scanInvoiceButton.addEventListener("click", scanDeliveryController.handleScanInvoice);
@@ -209,6 +228,13 @@ els.reloadButton.addEventListener("click", async () => {
   }
 });
 
+els.photoClarityRetake.addEventListener("click", () => {
+  finishPhotoClarityDecision("retake");
+  els.photoInput.click();
+});
+els.photoClarityAccept.addEventListener("click", () => finishPhotoClarityDecision("accept"));
+els.photoClarityDialog.addEventListener("cancel", (event) => event.preventDefault());
+
 els.photoInput.addEventListener("change", async () => {
   const file = els.photoInput.files[0];
   els.photoInput.value = "";
@@ -220,10 +246,26 @@ els.photoInput.addEventListener("change", async () => {
   const status = state.pendingStatus;
   let dataUrl = "";
   let capturedAt = "";
+  let keepCaptureContext = false;
   setMessage("照片處理中...");
   try {
     dataUrl = await compressToJpegDataUrl(file, 1800, 0.86);
     capturedAt = currentLocalTimestamp();
+    if (state.photoClarityEnabled) {
+      try {
+        const clarity = await PhotoQuality.analyzeDataUrl(dataUrl);
+        if (clarity.possibly_blurry) {
+          const decision = await requestPhotoClarityDecision();
+          if (decision === "retake") {
+            keepCaptureContext = true;
+            setMessage("");
+            return;
+          }
+        }
+      } catch (error) {
+        // 清晰度檢查失敗時仍保留原本的上傳流程。
+      }
+    }
     if (navigator.onLine === false) {
       await queuePhotoUpload(delivery, status, dataUrl, capturedAt);
       return;
@@ -242,8 +284,10 @@ els.photoInput.addEventListener("change", async () => {
     }
     setMessage(error.message, true);
   } finally {
-    state.pendingDelivery = null;
-    state.pendingStatus = null;
+    if (!keepCaptureContext) {
+      state.pendingDelivery = null;
+      state.pendingStatus = null;
+    }
   }
 });
 
@@ -608,6 +652,23 @@ function showDeliveryScreen() {
   els.driverName.textContent = state.profile.driver;
   els.reloadButton.hidden = true;
   renderDateSelect();
+}
+
+function requestPhotoClarityDecision() {
+  els.photoClarityDialog.showModal();
+  return new Promise((resolve) => {
+    resolvePhotoClarityDecision = resolve;
+  });
+}
+
+function finishPhotoClarityDecision(decision) {
+  if (!resolvePhotoClarityDecision) {
+    return;
+  }
+  const resolve = resolvePhotoClarityDecision;
+  resolvePhotoClarityDecision = null;
+  els.photoClarityDialog.close();
+  resolve(decision);
 }
 
 function resetDeliveryControls() {

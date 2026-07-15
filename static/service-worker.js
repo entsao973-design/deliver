@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.07.08.2";
+const APP_VERSION = "2026.07.15.1";
 const CACHE_NAME = `delivery-proof-pwa-${APP_VERSION}`;
 const SHELL_ASSETS = [
   "/",
@@ -16,6 +16,7 @@ const SHELL_ASSETS = [
   "/static/driver-smart-delivery.js",
   "/static/scan-invoice.js",
   "/static/driver-scan-delivery.js",
+  "/static/photo-quality.js",
   "/static/app.js",
   "/static/admin-api.js",
   "/static/admin-filter-options.js",

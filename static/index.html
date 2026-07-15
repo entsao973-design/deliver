@@ -102,6 +102,10 @@
               <input id="hideDoneToggle" type="checkbox" checked />
               <span>隱藏已達交</span>
             </label>
+            <label class="toggle-row photo-clarity-toggle">
+              <input id="photoClarityToggle" type="checkbox" />
+              <span>拍照後檢查清晰度</span>
+            </label>
             <label class="toggle-row">
               <input id="showAllPhotosToggle" type="checkbox" />
               <span>檢視所有照片</span>
@@ -125,6 +129,14 @@
 
     <input id="photoInput" type="file" accept="image/*" capture="environment" hidden />
     <input id="scanInvoiceInput" type="file" accept="image/*" capture="environment" hidden />
+
+    <dialog id="photoClarityDialog" class="photo-clarity-dialog">
+      <p>照片可能模糊，重拍或仍然接受。</p>
+      <div class="dialog-actions photo-clarity-actions">
+        <button id="photoClarityRetake" class="secondary-button" type="button">重拍</button>
+        <button id="photoClarityAccept" class="primary-button" type="button">仍然接受</button>
+      </div>
+    </dialog>
 
     <dialog id="scanInvoiceDialog" class="scan-invoice-dialog">
       <div class="dialog-header">
@@ -185,6 +197,7 @@
     <script src="/static/driver-smart-delivery.js"></script>
     <script src="/static/scan-invoice.js"></script>
     <script src="/static/driver-scan-delivery.js"></script>
+    <script src="/static/photo-quality.js"></script>
     <script src="/static/pwa.js" defer></script>
     <script src="/static/app.js" defer></script>
   </body>
