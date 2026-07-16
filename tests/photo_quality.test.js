@@ -34,15 +34,15 @@ function makeRgba(width, height, grayAt) {
   return rgba;
 }
 
-test("photo clarity preference defaults to disabled and is stored per user", () => {
+test("photo clarity preference defaults to enabled and is stored per user", () => {
   const storage = makeStorage();
 
-  assert.equal(loadEnabled(storage, "alice"), false);
-  saveEnabled(storage, "alice", true);
   assert.equal(loadEnabled(storage, "alice"), true);
-  assert.equal(loadEnabled(storage, "bob"), false);
   saveEnabled(storage, "alice", false);
   assert.equal(loadEnabled(storage, "alice"), false);
+  assert.equal(loadEnabled(storage, "bob"), true);
+  saveEnabled(storage, "alice", true);
+  assert.equal(loadEnabled(storage, "alice"), true);
 });
 
 test("photo clarity analysis flags a flat image as possibly blurry", () => {

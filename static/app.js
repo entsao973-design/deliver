@@ -15,7 +15,7 @@ const state = {
   pendingUploads: [],
   syncInProgress: false,
   dialogDelivery: null,
-  photoClarityEnabled: false,
+  photoClarityEnabled: true,
 };
 
 const els = {

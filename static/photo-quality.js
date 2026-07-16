@@ -25,7 +25,7 @@
   }
 
   function loadEnabled(storage, username) {
-    return readPreferences(storage)[preferenceId(username)] === true;
+    return readPreferences(storage)[preferenceId(username)] !== false;
   }
 
   function saveEnabled(storage, username, enabled) {
