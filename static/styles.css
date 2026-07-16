@@ -49,10 +49,11 @@ button:disabled {
 }
 
 .app-shell {
+  --app-shell-padding: 18px;
   width: min(100%, 760px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 18px;
+  padding: var(--app-shell-padding);
 }
 
 .screen {
@@ -67,6 +68,28 @@ button:disabled {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+html.driver-viewport-locked,
+body.driver-viewport-locked {
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.driver-viewport-locked .app-shell {
+  height: 100vh;
+  height: 100svh;
+  min-height: 0;
+  padding-top: max(var(--app-shell-padding), env(safe-area-inset-top));
+  padding-right: max(var(--app-shell-padding), env(safe-area-inset-right));
+  padding-bottom: max(var(--app-shell-padding), env(safe-area-inset-bottom));
+  padding-left: max(var(--app-shell-padding), env(safe-area-inset-left));
+}
+
+body.driver-viewport-locked .delivery-screen {
+  height: 100%;
 }
 
 .delivery-screen .top-bar,
@@ -1058,7 +1081,7 @@ select:focus {
 
 @media (max-width: 520px) {
   .app-shell {
-    padding: 12px;
+    --app-shell-padding: 12px;
   }
 
   .screen {

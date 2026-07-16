@@ -25,7 +25,7 @@ test("driver entry uses driver route and split vehicle fields", () => {
   assert.match(workerJs, /"\/driver"/);
   assert.match(webPy, /parsed\.path in \{"\/", "\/driver"\}/);
   assert.match(html, /<script src="\/static\/home-redirect\.js"><\/script>/);
-  assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" \/>/);
+  assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" \/>/);
   assert.match(html, /<title>配送存證平台<\/title>/);
   assert.match(html, /<h1>配送存證平台<\/h1>/);
   assert.match(html, /<p>物流士登入<\/p>/);
@@ -117,6 +117,18 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(css, /\.delivery-screen \.message,[\s\S]*\.delivery-screen \.queue-status\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*line-height:\s*1\.35;[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*anywhere;[\s\S]*word-break:\s*break-word;/);
   assert.match(css, /\.delivery-screen \.delivery-list\s*\{[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);
   assert.match(appJs, /localStorage\.setItem\("delivery_pending_upload_count", String\(state\.pendingUploads\.length\)\);/);
+});
+
+test("driver browser view stays inside the iOS safe viewport", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
+  const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+
+  assert.match(css, /html\.driver-viewport-locked,[\s\S]*body\.driver-viewport-locked\s*\{[\s\S]*height:\s*100vh;[\s\S]*height:\s*100svh;[\s\S]*overflow:\s*hidden;[\s\S]*overscroll-behavior:\s*none;/);
+  assert.match(css, /body\.driver-viewport-locked \.app-shell\s*\{[\s\S]*height:\s*100vh;[\s\S]*height:\s*100svh;[\s\S]*min-height:\s*0;[\s\S]*padding-top:\s*max\(var\(--app-shell-padding\), env\(safe-area-inset-top\)\);[\s\S]*padding-bottom:\s*max\(var\(--app-shell-padding\), env\(safe-area-inset-bottom\)\);/);
+  assert.match(css, /body\.driver-viewport-locked \.delivery-screen\s*\{[\s\S]*height:\s*100%;/);
+  assert.match(appJs, /function setDriverViewportLocked\(isLocked\)\s*\{[\s\S]*document\.documentElement\.classList\.toggle\("driver-viewport-locked", isLocked\);[\s\S]*document\.body\.classList\.toggle\("driver-viewport-locked", isLocked\);[\s\S]*window\.scrollTo\(0, 0\);/);
+  assert.match(appJs, /function showDeliveryScreen\(\)\s*\{[\s\S]*setDriverViewportLocked\(true\);[\s\S]*els\.loginScreen\.hidden = true;/);
+  assert.match(appJs, /function showLoginScreen\(\)\s*\{[\s\S]*setDriverViewportLocked\(false\);[\s\S]*els\.deliveryScreen\.hidden = true;/);
 });
 
 test("driver and admin lists keep cards at content height when few records remain", () => {

@@ -644,7 +644,16 @@ async function compressToJpegDataUrl(file, maxSide, quality) {
   });
 }
 
+function setDriverViewportLocked(isLocked) {
+  document.documentElement.classList.toggle("driver-viewport-locked", isLocked);
+  document.body.classList.toggle("driver-viewport-locked", isLocked);
+  if (isLocked) {
+    window.scrollTo(0, 0);
+  }
+}
+
 function showDeliveryScreen() {
+  setDriverViewportLocked(true);
   els.loginScreen.hidden = true;
   els.deliveryScreen.hidden = false;
   els.routeTitle.textContent = state.profile.vehicle_no;
@@ -677,6 +686,7 @@ function resetDeliveryControls() {
 }
 
 function showLoginScreen() {
+  setDriverViewportLocked(false);
   els.deliveryScreen.hidden = true;
   els.loginScreen.hidden = false;
   state.token = "";
