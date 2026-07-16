@@ -113,8 +113,7 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(summaryTogglesBlock, /gap:\s*0;/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.delivery-screen \.summary-toggles\s*\{[\s\S]*gap:\s*0;/);
   assert.match(css, /\.delivery-screen \.summary-strip \.toggle-row input\s*\{[\s\S]*width:\s*15px;[\s\S]*height:\s*15px;[\s\S]*min-height:\s*15px;[\s\S]*margin:\s*0;/);
-  const summaryToggleTextBlock = cssBlockAfter(css, ".delivery-screen .summary-strip .summary-toggles span");
-  assert.match(summaryToggleTextBlock, /font-size:\s*12px;/);
+  assert.doesNotMatch(css, /\.delivery-screen \.summary-strip \.summary-toggles span/);
   assert.doesNotMatch(css, /\.delivery-screen \.summary-strip \.photo-clarity-toggle input/);
   assert.match(css, /\.delivery-screen \.message,[\s\S]*\.delivery-screen \.queue-status\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*line-height:\s*1\.35;[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*anywhere;[\s\S]*word-break:\s*break-word;/);
   assert.match(css, /\.delivery-screen \.delivery-list\s*\{[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);

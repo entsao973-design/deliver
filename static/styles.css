@@ -405,10 +405,6 @@ select:focus {
   font-size: 11px;
 }
 
-.delivery-screen .summary-strip .summary-toggles span {
-  font-size: 12px;
-}
-
 .delivery-screen .summary-strip .toggle-row {
   white-space: nowrap;
 }
