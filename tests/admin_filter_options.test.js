@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   buildAdminOptionsPath,
+  nextDeliverySort,
   sortDeliveries,
   visibleDeliveries,
   visibleDeliveryIds,
@@ -51,7 +52,7 @@ test("visibleDeliveryIds follows the hide-delivered filter for bulk actions", ()
 test("sortDeliveries keeps the original order until a primary sort is selected", () => {
   const deliveries = [{ id: "second" }, { id: "first" }];
 
-  assert.deepEqual(sortDeliveries(deliveries, ""), deliveries);
+  assert.deepEqual(sortDeliveries(deliveries, "", "asc"), deliveries);
   assert.deepEqual(deliveries.map((delivery) => delivery.id), ["second", "first"]);
 });
 
@@ -64,19 +65,19 @@ test("sortDeliveries applies the selected primary field before fixed secondary f
   ];
 
   assert.deepEqual(
-    sortDeliveries(deliveries, "customer").map((delivery) => delivery.id),
+    sortDeliveries(deliveries, "customer", "asc").map((delivery) => delivery.id),
     ["alpha-normal", "beta-pending", "beta-abnormal", "beta-normal"],
   );
   assert.deepEqual(
-    sortDeliveries(deliveries, "company").map((delivery) => delivery.id),
+    sortDeliveries(deliveries, "company", "asc").map((delivery) => delivery.id),
     ["beta-abnormal", "beta-normal", "beta-pending", "alpha-normal"],
   );
   assert.deepEqual(
-    sortDeliveries(deliveries, "driver").map((delivery) => delivery.id),
+    sortDeliveries(deliveries, "driver", "asc").map((delivery) => delivery.id),
     ["beta-pending", "beta-abnormal", "alpha-normal", "beta-normal"],
   );
   assert.deepEqual(
-    sortDeliveries(deliveries, "status").map((delivery) => delivery.id),
+    sortDeliveries(deliveries, "status", "asc").map((delivery) => delivery.id),
     ["beta-pending", "beta-abnormal", "beta-normal", "alpha-normal"],
   );
   assert.deepEqual(deliveries.map((delivery) => delivery.id), [
@@ -85,4 +86,29 @@ test("sortDeliveries applies the selected primary field before fixed secondary f
     "beta-abnormal",
     "alpha-normal",
   ]);
+});
+
+test("sortDeliveries reverses only the primary field for descending order", () => {
+  const deliveries = [
+    { id: "beta-normal", customer: "Beta", company: "A", status: "normal" },
+    { id: "beta-pending", customer: "Beta", company: "B", status: "" },
+    { id: "beta-abnormal", customer: "Beta", company: "A", status: "abnormal" },
+    { id: "alpha-normal", customer: "Alpha", company: "Z", status: "normal" },
+  ];
+
+  assert.deepEqual(
+    sortDeliveries(deliveries, "customer", "desc").map((delivery) => delivery.id),
+    ["beta-pending", "beta-abnormal", "beta-normal", "alpha-normal"],
+  );
+  assert.deepEqual(
+    sortDeliveries(deliveries, "status", "desc").map((delivery) => delivery.id),
+    ["beta-normal", "alpha-normal", "beta-abnormal", "beta-pending"],
+  );
+});
+
+test("nextDeliverySort toggles the same button and resets a different button to ascending", () => {
+  assert.deepEqual(nextDeliverySort("", "asc", "customer"), { key: "customer", direction: "asc" });
+  assert.deepEqual(nextDeliverySort("customer", "asc", "customer"), { key: "customer", direction: "desc" });
+  assert.deepEqual(nextDeliverySort("customer", "desc", "customer"), { key: "customer", direction: "asc" });
+  assert.deepEqual(nextDeliverySort("customer", "desc", "company"), { key: "company", direction: "asc" });
 });

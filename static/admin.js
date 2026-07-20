@@ -50,7 +50,8 @@ const adminState = {
   archiveRequestId: 0,
   showAllPhotos: false,
   hideDelivered: false,
-  deliverySort: "",
+  deliverySortKey: "",
+  deliverySortDirection: "asc",
   photoDelivery: null,
   photoRefreshToken: 0,
 };
@@ -93,7 +94,7 @@ const adminEls = {
   bulkPermanentDeleteFiltered: document.querySelector("#bulkPermanentDeleteFiltered"),
   toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
   hideDelivered: document.querySelector("#hideDelivered"),
-  deliverySort: document.querySelector("#deliverySort"),
+  deliverySortButtons: document.querySelectorAll("[data-delivery-sort]"),
   deliveryList: document.querySelector("#adminDeliveryList"),
   deletedList: document.querySelector("#deletedDeliveryList"),
   dropZone: document.querySelector("#dropZone"),
@@ -176,10 +177,19 @@ adminEls.hideDelivered.addEventListener("change", () => {
   adminState.hideDelivered = adminEls.hideDelivered.checked;
   renderCurrentDeliveries();
 });
-adminEls.deliverySort.addEventListener("change", () => {
-  adminState.deliverySort = adminEls.deliverySort.value;
-  renderCurrentDeliveries();
-});
+for (const button of adminEls.deliverySortButtons) {
+  button.addEventListener("click", () => {
+    const nextSort = AdminFilterOptions.nextDeliverySort(
+      adminState.deliverySortKey,
+      adminState.deliverySortDirection,
+      button.dataset.deliverySort,
+    );
+    adminState.deliverySortKey = nextSort.key;
+    adminState.deliverySortDirection = nextSort.direction;
+    updateDeliverySortButtons();
+    renderCurrentDeliveries();
+  });
+}
 adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.excelFile.files]));
 adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
@@ -228,6 +238,7 @@ async function initAdmin() {
     adminEls.deletedFilterEndDate.value = today;
     adminEls.archiveDate.value = today;
     updateToggleAllPhotosButton();
+    updateDeliverySortButtons();
     applyAdminPermissions(adminState.permissions);
     const initialView = firstAllowedAdminView();
     if (!initialView) {
@@ -385,6 +396,9 @@ async function setView(view) {
 }
 
 async function applyAdminFilters(deleted) {
+  if (!deleted) {
+    resetDeliverySort();
+  }
   clearAdminMessage();
   await loadOptions(deleted);
   await loadDeliveries(deleted);
@@ -451,7 +465,7 @@ async function loadDeliveries(deleted) {
 
 function renderCurrentDeliveries() {
   let deliveries = AdminFilterOptions.visibleDeliveries(adminState.deliveries, adminState.hideDelivered);
-  deliveries = AdminFilterOptions.sortDeliveries(deliveries, adminState.deliverySort);
+  deliveries = AdminFilterOptions.sortDeliveries(deliveries, adminState.deliverySortKey, adminState.deliverySortDirection);
   const hideDeliveryDate = Boolean(
     adminEls.filterStartDate.value && adminEls.filterStartDate.value === adminEls.filterEndDate.value
   );
@@ -1196,6 +1210,27 @@ function rotatedPhotoDataUrl(image, degrees) {
 
 function updateToggleAllPhotosButton() {
   adminEls.toggleAllPhotos.textContent = AdminPhotoView.showAllPhotosButtonText(adminState.showAllPhotos);
+}
+
+function resetDeliverySort() {
+  adminState.deliverySortKey = "";
+  adminState.deliverySortDirection = "asc";
+  updateDeliverySortButtons();
+}
+
+function updateDeliverySortButtons() {
+  for (const button of adminEls.deliverySortButtons) {
+    const active = button.dataset.deliverySort === adminState.deliverySortKey;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    if (active) {
+      button.dataset.direction = adminState.deliverySortDirection;
+      button.setAttribute("aria-label", `${button.textContent}${adminState.deliverySortDirection === "asc" ? "升冪" : "降冪"}排序`);
+    } else {
+      delete button.dataset.direction;
+      button.setAttribute("aria-label", `${button.textContent}排序`);
+    }
+  }
 }
 
 function fillSelect(select, values, placeholder, selectedValue = "") {

@@ -29,22 +29,31 @@
       .filter(Boolean);
   }
 
-  function sortDeliveries(deliveries, primarySort) {
+  function sortDeliveries(deliveries, primarySort, primaryDirection = "asc") {
     const primarySorts = ["customer", "company", "driver", "status"];
     if (!primarySorts.includes(primarySort)) {
       return deliveries;
     }
 
     const sortKeys = [primarySort, ...["status", "company", "customer"].filter((key) => key !== primarySort)];
+    const primaryMultiplier = primaryDirection === "desc" ? -1 : 1;
     return [...deliveries].sort((left, right) => {
-      for (const key of sortKeys) {
+      for (let index = 0; index < sortKeys.length; index += 1) {
+        const key = sortKeys[index];
         const comparison = compareDeliveryField(left, right, key);
         if (comparison !== 0) {
-          return comparison;
+          return index === 0 ? comparison * primaryMultiplier : comparison;
         }
       }
       return 0;
     });
+  }
+
+  function nextDeliverySort(currentKey, currentDirection, clickedKey) {
+    if (currentKey !== clickedKey) {
+      return { key: clickedKey, direction: "asc" };
+    }
+    return { key: clickedKey, direction: currentDirection === "asc" ? "desc" : "asc" };
   }
 
   function compareDeliveryField(left, right, key) {
@@ -69,6 +78,7 @@
 
   return {
     buildAdminOptionsPath,
+    nextDeliverySort,
     preservedSelectValue,
     sortDeliveries,
     visibleDeliveries,
