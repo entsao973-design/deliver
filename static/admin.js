@@ -49,6 +49,7 @@ const adminState = {
   archives: [],
   archiveRequestId: 0,
   showAllPhotos: false,
+  hideDelivered: false,
   photoDelivery: null,
   photoRefreshToken: 0,
 };
@@ -90,6 +91,7 @@ const adminEls = {
   bulkDeleteFiltered: document.querySelector("#bulkDeleteFiltered"),
   bulkPermanentDeleteFiltered: document.querySelector("#bulkPermanentDeleteFiltered"),
   toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
+  hideDelivered: document.querySelector("#hideDelivered"),
   deliveryList: document.querySelector("#adminDeliveryList"),
   deletedList: document.querySelector("#deletedDeliveryList"),
   dropZone: document.querySelector("#dropZone"),
@@ -167,6 +169,10 @@ adminEls.toggleAllPhotos.addEventListener("click", () => {
   adminState.showAllPhotos = !adminState.showAllPhotos;
   updateToggleAllPhotosButton();
   loadDeliveries(false);
+});
+adminEls.hideDelivered.addEventListener("change", () => {
+  adminState.hideDelivered = adminEls.hideDelivered.checked;
+  renderCurrentDeliveries();
 });
 adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.excelFile.files]));
 adminEls.uploadExcel.addEventListener("click", uploadExcel);
@@ -430,7 +436,19 @@ async function loadDeliveries(deleted) {
   const hideDeliveryDate = Boolean(startDateEl.value && startDateEl.value === endDateEl.value);
   adminState[deleted ? "deletedDeliveries" : "deliveries"] = result.deliveries;
   updateDeliveryCounts(deleted ? adminEls.deletedDeliveryCounts : adminEls.deliveryCounts, result.deliveries);
-  renderDeliveries(listEl, result.deliveries, deleted, hideDeliveryDate);
+  if (deleted) {
+    renderDeliveries(listEl, result.deliveries, true, hideDeliveryDate);
+  } else {
+    renderCurrentDeliveries();
+  }
+}
+
+function renderCurrentDeliveries() {
+  const deliveries = AdminFilterOptions.visibleDeliveries(adminState.deliveries, adminState.hideDelivered);
+  const hideDeliveryDate = Boolean(
+    adminEls.filterStartDate.value && adminEls.filterStartDate.value === adminEls.filterEndDate.value
+  );
+  renderDeliveries(adminEls.deliveryList, deliveries, false, hideDeliveryDate);
 }
 
 function updateDeliveryCounts(element, deliveries) {
@@ -733,9 +751,8 @@ async function deleteDelivery(delivery, button) {
 }
 
 function currentDeliveryIds(deleted) {
-  return (deleted ? adminState.deletedDeliveries : adminState.deliveries)
-    .map((delivery) => delivery.id)
-    .filter(Boolean);
+  const deliveries = deleted ? adminState.deletedDeliveries : adminState.deliveries;
+  return AdminFilterOptions.visibleDeliveryIds(deliveries, !deleted && adminState.hideDelivered);
 }
 
 async function bulkDeleteFilteredDeliveries() {

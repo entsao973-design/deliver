@@ -115,7 +115,7 @@
 }
 
 .delivery-filter-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(90px, 0.7fr) minmax(220px, 1.2fr) minmax(120px, 0.8fr) minmax(100px, 0.7fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(90px, 0.7fr) minmax(220px, 1.2fr) minmax(120px, 0.9fr) minmax(120px, 0.8fr) minmax(100px, 0.7fr);
 }
 
 .deleted-filter-grid {
@@ -454,6 +454,26 @@
 
 .user-form label span {
   white-space: nowrap;
+}
+
+.delivery-visibility-toggle {
+  align-self: end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  gap: 6px;
+  color: #000000;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filter-grid .delivery-visibility-toggle input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
 }
 
 .user-form input,

@@ -19,8 +19,20 @@
     return values.includes(currentValue) ? currentValue : "";
   }
 
+  function visibleDeliveries(deliveries, hideDelivered) {
+    return hideDelivered ? deliveries.filter((delivery) => !delivery.status) : deliveries;
+  }
+
+  function visibleDeliveryIds(deliveries, hideDelivered) {
+    return visibleDeliveries(deliveries, hideDelivered)
+      .map((delivery) => delivery.id)
+      .filter(Boolean);
+  }
+
   return {
     buildAdminOptionsPath,
     preservedSelectValue,
+    visibleDeliveries,
+    visibleDeliveryIds,
   };
 });

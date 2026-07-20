@@ -361,17 +361,23 @@ test("admin filtered delivery rows support bulk delete and filtered permanent de
 
   assert.match(html, /data-view="deleted"[^>]*>刪除區<\/button>/);
   assert.doesNotMatch(html, /已達交刪除區/);
-  assert.match(html, /<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*<\/div>\s*<button id="toggleAllPhotos" class="secondary-button" type="button">[\s\S]*<\/button>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
+  assert.match(html, /<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*<\/div>\s*<label class="delivery-visibility-toggle">\s*<input id="hideDelivered" type="checkbox" \/>\s*<span>隱藏已達交<\/span>\s*<\/label>\s*<button id="toggleAllPhotos" class="secondary-button" type="button">[\s\S]*<\/button>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
   assert.match(html, /<div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="bulkPermanentDeleteFiltered" class="danger-button" type="button">全部永久刪除<\/button>/);
-  assert.match(css, /\.delivery-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(120px,\s*0\.8fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.delivery-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(120px,\s*0\.9fr\) minmax\(120px,\s*0\.8fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.delivery-visibility-toggle\s*\{[\s\S]*align-self:\s*end;[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*height:\s*30px;[\s\S]*white-space:\s*nowrap;/);
+  assert.match(css, /\.filter-grid \.delivery-visibility-toggle input\s*\{[\s\S]*width:\s*16px;[\s\S]*height:\s*16px;[\s\S]*min-height:\s*16px;/);
   assert.match(css, /\.deleted-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(100px,\s*0\.7fr\);/);
   assert.match(adminJs, /deliveries:\s*\[\]/);
   assert.match(adminJs, /deletedDeliveries:\s*\[\]/);
   assert.match(adminJs, /bulkDeleteFiltered:\s*document\.querySelector\("#bulkDeleteFiltered"\)/);
+  assert.match(adminJs, /hideDelivered:\s*document\.querySelector\("#hideDelivered"\)/);
   assert.match(adminJs, /bulkPermanentDeleteFiltered:\s*document\.querySelector\("#bulkPermanentDeleteFiltered"\)/);
   assert.match(adminJs, /adminEls\.bulkDeleteFiltered\.addEventListener\("click", bulkDeleteFilteredDeliveries\);/);
+  assert.match(adminJs, /adminEls\.hideDelivered\.addEventListener\("change",[\s\S]*adminState\.hideDelivered = adminEls\.hideDelivered\.checked;[\s\S]*renderCurrentDeliveries\(\);[\s\S]*\}\);/);
   assert.match(adminJs, /adminEls\.bulkPermanentDeleteFiltered\.addEventListener\("click", bulkPermanentDeleteFilteredDeliveries\);/);
   assert.match(adminJs, /adminState\[deleted \? "deletedDeliveries" : "deliveries"\] = result\.deliveries;/);
+  assert.match(adminJs, /function renderCurrentDeliveries\(\) \{[\s\S]*AdminFilterOptions\.visibleDeliveries\(adminState\.deliveries, adminState\.hideDelivered\)[\s\S]*renderDeliveries\(adminEls\.deliveryList,/);
+  assert.match(adminJs, /function currentDeliveryIds\(deleted\) \{[\s\S]*AdminFilterOptions\.visibleDeliveryIds\(deliveries, !deleted && adminState\.hideDelivered\);/);
   assert.match(adminJs, /async function bulkDeleteFilteredDeliveries\(\) \{/);
   assert.match(adminJs, /adminApi\("\/api\/admin\/deliveries\/bulk-delete",[\s\S]*delivery_ids: deliveryIds,/);
   assert.match(adminJs, /async function bulkPermanentDeleteFilteredDeliveries\(\) \{/);
@@ -512,9 +518,9 @@ test("admin filter row shows query before filtered delivery counts", () => {
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
-  assert.match(html, /<select id="filterDriver"><\/select>\s*<\/label>\s*<button id="applyFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="toggleAllPhotos" class="secondary-button" type="button">[\s\S]*<\/button>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
+  assert.match(html, /<select id="filterDriver"><\/select>\s*<\/label>\s*<button id="applyFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="adminDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<label class="delivery-visibility-toggle">\s*<input id="hideDelivered" type="checkbox" \/>\s*<span>隱藏已達交<\/span>\s*<\/label>\s*<button id="toggleAllPhotos" class="secondary-button" type="button">[\s\S]*<\/button>\s*<button id="bulkDeleteFiltered" class="danger-button" type="button">全部刪除<\/button>/);
   assert.match(html, /<select id="deletedFilterDriver"><\/select>\s*<\/label>\s*<button id="applyDeletedFilters" class="secondary-button" type="button">查詢<\/button>\s*<div id="deletedDeliveryCounts" class="filter-counts" role="status" aria-live="polite">[\s\S]*已達交: 0[\s\S]*未達交: 0[\s\S]*共: 0[\s\S]*<\/div>\s*<button id="bulkPermanentDeleteFiltered" class="danger-button" type="button">全部永久刪除<\/button>/);
-  assert.match(css, /\.delivery-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(120px,\s*0\.8fr\) minmax\(100px,\s*0\.7fr\);/);
+  assert.match(css, /\.delivery-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(120px,\s*0\.9fr\) minmax\(120px,\s*0\.8fr\) minmax\(100px,\s*0\.7fr\);/);
   assert.match(css, /\.deleted-filter-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\) minmax\(90px,\s*0\.7fr\) minmax\(220px,\s*1\.2fr\) minmax\(100px,\s*0\.7fr\);/);
   assert.match(css, /\.filter-counts\s*\{[\s\S]*align-self:\s*end;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;[\s\S]*font-size:\s*14px;[\s\S]*white-space:\s*nowrap;/);
   assert.match(adminJs, /deliveryCounts:\s*document\.querySelector\("#adminDeliveryCounts"\)/);
@@ -537,7 +543,7 @@ test("admin delivery list uses full width compact rows", () => {
   assert.match(css, /\.admin-card\.delivery-row:not\(\.has-inline-photo\) \.admin-photo-time\s*\{[\s\S]*display:\s*none;/);
   assert.match(css, /\.admin-card\.delivery-row \.admin-row-actions\s*\{[\s\S]*justify-content:\s*flex-end;/);
   assert.match(adminJs, /const hideDeliveryDate = Boolean\(startDateEl\.value && startDateEl\.value === endDateEl\.value\);/);
-  assert.match(adminJs, /renderDeliveries\(listEl, result\.deliveries, deleted, hideDeliveryDate\);/);
+  assert.match(adminJs, /if \(deleted\) \{\s*renderDeliveries\(listEl, result\.deliveries, true, hideDeliveryDate\);\s*\} else \{\s*renderCurrentDeliveries\(\);\s*\}/);
   assert.match(adminJs, /function renderDeliveries\(container, deliveries, deleted, hideDeliveryDate = false\)/);
   assert.match(adminJs, /<div class="admin-inline-photo-left">\s*<strong class="admin-customer"><\/strong>\s*<span class="admin-row-cell admin-document"><\/span>\s*<\/div>\s*<div class="admin-inline-photo-toolbar"><\/div>\s*<div class="admin-inline-photo-right">\s*<span class="admin-row-cell admin-photo-time"><\/span>\s*<span class="admin-row-cell admin-route"><\/span>\s*<span class="admin-row-cell admin-status"><\/span>\s*<div class="admin-actions admin-row-actions"><\/div>\s*<\/div>/);
   assert.match(adminJs, /card\.querySelector\("\.admin-document"\)\.textContent = \[\s*hideDeliveryDate \? "" : delivery\.delivery_date,\s*delivery\.company,\s*delivery\.invoice_no,\s*delivery\.quantity \? `數量：\$\{delivery\.quantity\}` : "",\s*\]\.filter\(Boolean\)\.join\(" \| "\);/);
