@@ -95,6 +95,7 @@ const adminEls = {
   toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
   hideDelivered: document.querySelector("#hideDelivered"),
   deliverySortButtons: document.querySelectorAll("[data-delivery-sort]"),
+  deliveryListToolbar: document.querySelector("#deliveryListToolbar"),
   deliveryList: document.querySelector("#adminDeliveryList"),
   deletedList: document.querySelector("#deletedDeliveryList"),
   dropZone: document.querySelector("#dropZone"),
@@ -190,6 +191,7 @@ for (const button of adminEls.deliverySortButtons) {
     renderCurrentDeliveries();
   });
 }
+window.addEventListener("resize", scheduleDeliveryListToolbarWidthSync);
 adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.excelFile.files]));
 adminEls.uploadExcel.addEventListener("click", uploadExcel);
 adminEls.archivePhotos.addEventListener("click", archivePhotos);
@@ -470,6 +472,7 @@ function renderCurrentDeliveries() {
     adminEls.filterStartDate.value && adminEls.filterStartDate.value === adminEls.filterEndDate.value
   );
   renderDeliveries(adminEls.deliveryList, deliveries, false, hideDeliveryDate);
+  scheduleDeliveryListToolbarWidthSync();
 }
 
 function updateDeliveryCounts(element, deliveries) {
@@ -1216,6 +1219,15 @@ function resetDeliverySort() {
   adminState.deliverySortKey = "";
   adminState.deliverySortDirection = "asc";
   updateDeliverySortButtons();
+}
+
+function scheduleDeliveryListToolbarWidthSync() {
+  requestAnimationFrame(syncDeliveryListToolbarWidth);
+}
+
+function syncDeliveryListToolbarWidth() {
+  const scrollbarWidth = Math.max(0, adminEls.deliveryList.offsetWidth - adminEls.deliveryList.clientWidth);
+  adminEls.deliveryListToolbar.style.setProperty("--delivery-list-scrollbar-width", `${scrollbarWidth}px`);
 }
 
 function updateDeliverySortButtons() {

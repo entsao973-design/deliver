@@ -534,7 +534,7 @@ test("admin delivery sort buttons toggle direction and query restores original o
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 
-  assert.match(html, /<\/div>\s*<div class="delivery-list-toolbar" role="group" aria-label="配送清單排序">\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="customer" type="button" aria-pressed="false">客戶<\/button>\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="company" type="button" aria-pressed="false">公司<\/button>\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="driver" type="button" aria-pressed="false">物流士<\/button>\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="status" type="button" aria-pressed="false">達交狀態<\/button>\s*<span class="delivery-sort-spacer" aria-hidden="true"><\/span>\s*<\/div>\s*<section id="adminDeliveryList" class="admin-list"><\/section>/);
+  assert.match(html, /<\/div>\s*<div id="deliveryListToolbar" class="delivery-list-toolbar" role="group" aria-label="配送清單排序">\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="customer" type="button" aria-pressed="false">客戶<\/button>\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="company" type="button" aria-pressed="false">公司<\/button>\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="driver" type="button" aria-pressed="false">物流士<\/button>\s*<button class="secondary-button delivery-sort-button" data-delivery-sort="status" type="button" aria-pressed="false">達交狀態<\/button>\s*<span class="delivery-sort-spacer" aria-hidden="true"><\/span>\s*<\/div>\s*<section id="adminDeliveryList" class="admin-list"><\/section>/);
   assert.doesNotMatch(html, /id="deliverySort"|原始順序/);
   assert.match(css, /\.delivery-list-toolbar\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(180px,\s*4fr\) minmax\(160px,\s*3fr\) minmax\(120px,\s*2fr\) minmax\(76px,\s*1fr\) minmax\(100px,\s*2fr\);[\s\S]*min-height:\s*34px;/);
   assert.match(css, /#deliveriesView\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\);/);
@@ -547,6 +547,18 @@ test("admin delivery sort buttons toggle direction and query restores original o
   assert.match(adminJs, /for \(const button of adminEls\.deliverySortButtons\) \{[\s\S]*AdminFilterOptions\.nextDeliverySort\([\s\S]*button\.dataset\.deliverySort[\s\S]*updateDeliverySortButtons\(\);[\s\S]*renderCurrentDeliveries\(\);[\s\S]*\}/);
   assert.match(adminJs, /async function applyAdminFilters\(deleted\) \{[\s\S]*if \(!deleted\) \{\s*resetDeliverySort\(\);\s*\}[\s\S]*await loadDeliveries\(deleted\);/);
   assert.match(adminJs, /AdminFilterOptions\.sortDeliveries\(deliveries, adminState\.deliverySortKey, adminState\.deliverySortDirection\)/);
+});
+
+test("admin delivery sort toolbar subtracts the actual list scrollbar width", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(css, /\.delivery-list-toolbar\s*\{[\s\S]*width:\s*calc\(100% - var\(--delivery-list-scrollbar-width,\s*0px\)\);/);
+  assert.match(adminJs, /deliveryListToolbar:\s*document\.querySelector\("#deliveryListToolbar"\)/);
+  assert.match(adminJs, /function syncDeliveryListToolbarWidth\(\) \{\s*const scrollbarWidth = Math\.max\(0, adminEls\.deliveryList\.offsetWidth - adminEls\.deliveryList\.clientWidth\);\s*adminEls\.deliveryListToolbar\.style\.setProperty\("--delivery-list-scrollbar-width", `\$\{scrollbarWidth\}px`\);\s*\}/);
+  assert.match(adminJs, /function scheduleDeliveryListToolbarWidthSync\(\) \{\s*requestAnimationFrame\(syncDeliveryListToolbarWidth\);\s*\}/);
+  assert.match(adminJs, /renderDeliveries\(adminEls\.deliveryList, deliveries, false, hideDeliveryDate\);\s*scheduleDeliveryListToolbarWidthSync\(\);/);
+  assert.match(adminJs, /window\.addEventListener\("resize", scheduleDeliveryListToolbarWidthSync\);/);
 });
 
 test("admin delivery list uses full width compact rows", () => {
