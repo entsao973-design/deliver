@@ -50,6 +50,7 @@ const adminState = {
   archiveRequestId: 0,
   showAllPhotos: false,
   hideDelivered: false,
+  deliverySort: "",
   photoDelivery: null,
   photoRefreshToken: 0,
 };
@@ -92,6 +93,7 @@ const adminEls = {
   bulkPermanentDeleteFiltered: document.querySelector("#bulkPermanentDeleteFiltered"),
   toggleAllPhotos: document.querySelector("#toggleAllPhotos"),
   hideDelivered: document.querySelector("#hideDelivered"),
+  deliverySort: document.querySelector("#deliverySort"),
   deliveryList: document.querySelector("#adminDeliveryList"),
   deletedList: document.querySelector("#deletedDeliveryList"),
   dropZone: document.querySelector("#dropZone"),
@@ -172,6 +174,10 @@ adminEls.toggleAllPhotos.addEventListener("click", () => {
 });
 adminEls.hideDelivered.addEventListener("change", () => {
   adminState.hideDelivered = adminEls.hideDelivered.checked;
+  renderCurrentDeliveries();
+});
+adminEls.deliverySort.addEventListener("change", () => {
+  adminState.deliverySort = adminEls.deliverySort.value;
   renderCurrentDeliveries();
 });
 adminEls.excelFile.addEventListener("change", () => setUploadFiles([...adminEls.excelFile.files]));
@@ -444,7 +450,8 @@ async function loadDeliveries(deleted) {
 }
 
 function renderCurrentDeliveries() {
-  const deliveries = AdminFilterOptions.visibleDeliveries(adminState.deliveries, adminState.hideDelivered);
+  let deliveries = AdminFilterOptions.visibleDeliveries(adminState.deliveries, adminState.hideDelivered);
+  deliveries = AdminFilterOptions.sortDeliveries(deliveries, adminState.deliverySort);
   const hideDeliveryDate = Boolean(
     adminEls.filterStartDate.value && adminEls.filterStartDate.value === adminEls.filterEndDate.value
   );

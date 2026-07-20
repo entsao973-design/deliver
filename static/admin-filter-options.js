@@ -29,9 +29,48 @@
       .filter(Boolean);
   }
 
+  function sortDeliveries(deliveries, primarySort) {
+    const primarySorts = ["customer", "company", "driver", "status"];
+    if (!primarySorts.includes(primarySort)) {
+      return deliveries;
+    }
+
+    const sortKeys = [primarySort, ...["status", "company", "customer"].filter((key) => key !== primarySort)];
+    return [...deliveries].sort((left, right) => {
+      for (const key of sortKeys) {
+        const comparison = compareDeliveryField(left, right, key);
+        if (comparison !== 0) {
+          return comparison;
+        }
+      }
+      return 0;
+    });
+  }
+
+  function compareDeliveryField(left, right, key) {
+    if (key === "status") {
+      const rankDifference = deliveryStatusRank(left.status) - deliveryStatusRank(right.status);
+      if (rankDifference !== 0) {
+        return rankDifference;
+      }
+    }
+    return String(left[key] || "").localeCompare(String(right[key] || ""), "zh-Hant", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  }
+
+  function deliveryStatusRank(status) {
+    if (!status) return 0;
+    if (status === "abnormal") return 1;
+    if (status === "normal") return 2;
+    return 3;
+  }
+
   return {
     buildAdminOptionsPath,
     preservedSelectValue,
+    sortDeliveries,
     visibleDeliveries,
     visibleDeliveryIds,
   };

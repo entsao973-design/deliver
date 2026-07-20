@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   buildAdminOptionsPath,
+  sortDeliveries,
   visibleDeliveries,
   visibleDeliveryIds,
   preservedSelectValue,
@@ -45,4 +46,43 @@ test("visibleDeliveryIds follows the hide-delivered filter for bulk actions", ()
 
   assert.deepEqual(visibleDeliveryIds(deliveries, false), ["pending", "normal"]);
   assert.deepEqual(visibleDeliveryIds(deliveries, true), ["pending"]);
+});
+
+test("sortDeliveries keeps the original order until a primary sort is selected", () => {
+  const deliveries = [{ id: "second" }, { id: "first" }];
+
+  assert.deepEqual(sortDeliveries(deliveries, ""), deliveries);
+  assert.deepEqual(deliveries.map((delivery) => delivery.id), ["second", "first"]);
+});
+
+test("sortDeliveries applies the selected primary field before fixed secondary fields", () => {
+  const deliveries = [
+    { id: "beta-normal", customer: "Beta", company: "A", driver: "Z", status: "normal" },
+    { id: "beta-pending", customer: "Beta", company: "B", driver: "A", status: "" },
+    { id: "beta-abnormal", customer: "Beta", company: "A", driver: "M", status: "abnormal" },
+    { id: "alpha-normal", customer: "Alpha", company: "Z", driver: "Y", status: "normal" },
+  ];
+
+  assert.deepEqual(
+    sortDeliveries(deliveries, "customer").map((delivery) => delivery.id),
+    ["alpha-normal", "beta-pending", "beta-abnormal", "beta-normal"],
+  );
+  assert.deepEqual(
+    sortDeliveries(deliveries, "company").map((delivery) => delivery.id),
+    ["beta-abnormal", "beta-normal", "beta-pending", "alpha-normal"],
+  );
+  assert.deepEqual(
+    sortDeliveries(deliveries, "driver").map((delivery) => delivery.id),
+    ["beta-pending", "beta-abnormal", "alpha-normal", "beta-normal"],
+  );
+  assert.deepEqual(
+    sortDeliveries(deliveries, "status").map((delivery) => delivery.id),
+    ["beta-pending", "beta-abnormal", "beta-normal", "alpha-normal"],
+  );
+  assert.deepEqual(deliveries.map((delivery) => delivery.id), [
+    "beta-normal",
+    "beta-pending",
+    "beta-abnormal",
+    "alpha-normal",
+  ]);
 });

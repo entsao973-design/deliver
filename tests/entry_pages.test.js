@@ -529,6 +529,22 @@ test("admin filter row shows query before filtered delivery counts", () => {
   assert.match(adminJs, /function updateDeliveryCounts\(element, deliveries\) \{[\s\S]*const deliveredCount = deliveries\.filter\(\(delivery\) => Boolean\(delivery\.status\)\)\.length;[\s\S]*const pendingCount = totalCount - deliveredCount;[\s\S]*makeCountSpan\(`已達交: \$\{deliveredCount\}`\)[\s\S]*makeCountSpan\(`未達交: \$\{pendingCount\}`\)[\s\S]*makeCountSpan\(`共: \$\{totalCount\}`\)/);
 });
 
+test("admin delivery sort toolbar is directly above delivery cards", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "admin.html"), "utf8");
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+  const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
+
+  assert.match(html, /<\/div>\s*<div class="delivery-list-toolbar">\s*<label>\s*<span>排序方式<\/span>\s*<select id="deliverySort">\s*<option value="">原始順序<\/option>\s*<option value="customer">客戶<\/option>\s*<option value="company">公司<\/option>\s*<option value="driver">物流士<\/option>\s*<option value="status">達交狀態<\/option>\s*<\/select>\s*<\/label>\s*<\/div>\s*<section id="adminDeliveryList" class="admin-list"><\/section>/);
+  assert.match(css, /\.delivery-list-toolbar\s*\{[\s\S]*display:\s*flex;[\s\S]*justify-content:\s*flex-end;[\s\S]*min-height:\s*34px;/);
+  assert.match(css, /#deliveriesView\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\);/);
+  assert.match(css, /\.delivery-list-toolbar label\s*\{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*gap:\s*6px;/);
+  assert.match(css, /\.delivery-list-toolbar select\s*\{[\s\S]*width:\s*150px;[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/);
+  assert.match(adminJs, /deliverySort:\s*""/);
+  assert.match(adminJs, /deliverySort:\s*document\.querySelector\("#deliverySort"\)/);
+  assert.match(adminJs, /adminEls\.deliverySort\.addEventListener\("change",[\s\S]*adminState\.deliverySort = adminEls\.deliverySort\.value;[\s\S]*renderCurrentDeliveries\(\);[\s\S]*\}\);/);
+  assert.match(adminJs, /AdminFilterOptions\.sortDeliveries\(deliveries, adminState\.deliverySort\)/);
+});
+
 test("admin delivery list uses full width compact rows", () => {
   const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
