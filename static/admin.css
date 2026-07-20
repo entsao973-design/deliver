@@ -482,7 +482,7 @@
 
 .delivery-list-toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 4fr) minmax(160px, 3fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(100px, 2fr);
+  grid-template-columns: minmax(180px, 4fr) minmax(160px, 3fr) minmax(120px, 2fr) minmax(76px, 1fr) minmax(100px, 2.1fr);
   gap: 8px;
   min-height: 34px;
   padding: 2px 0px;
