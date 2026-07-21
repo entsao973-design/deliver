@@ -493,6 +493,12 @@ test("archive date change loads existing archives and keeps only the latest resp
   assert.match(adminJs, /此日期尚無封存檔案/);
 });
 
+test("admin delivery filter labels align with their control text", () => {
+  const css = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");
+
+  assert.match(css, /\.delivery-filter-grid > label:nth-child\(-n \+ 4\) > span\s*\{\s*padding-inline-start:\s*11px;\s*\}/);
+});
+
 test("admin import success refreshes only delivery data allowed by permissions", () => {
   const adminJs = fs.readFileSync(path.join(staticRoot, "admin.js"), "utf8");
 

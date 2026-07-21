@@ -131,6 +131,10 @@
   font-size: 13px;
 }
 
+.delivery-filter-grid > label:nth-child(-n + 4) > span {
+  padding-inline-start: 11px;
+}
+
 .filter-grid input,
 .filter-grid select {
   height: 30px;
