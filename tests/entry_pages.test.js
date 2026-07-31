@@ -119,13 +119,25 @@ test("driver delivery controls stay fixed while the list scrolls", () => {
   assert.match(appJs, /localStorage\.setItem\("delivery_pending_upload_count", String\(state\.pendingUploads\.length\)\);/);
 });
 
-test("driver browser view stays inside the iOS safe viewport", () => {
+test("driver browser and installed PWA keep the full delivery list inside the iOS safe viewport", () => {
   const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
   const appJs = fs.readFileSync(path.join(staticRoot, "app.js"), "utf8");
+  const shellBlock = cssBlockAfter(css, "body.driver-viewport-locked .app-shell");
+  const screenBlock = cssBlockAfter(css, "body.driver-viewport-locked .delivery-screen");
+  const listBlock = cssBlockAfter(css, "body.driver-viewport-locked .delivery-list");
 
   assert.match(css, /html\.driver-viewport-locked,[\s\S]*body\.driver-viewport-locked\s*\{[\s\S]*height:\s*100vh;[\s\S]*height:\s*100svh;[\s\S]*overflow:\s*hidden;[\s\S]*overscroll-behavior:\s*none;/);
-  assert.match(css, /body\.driver-viewport-locked \.app-shell\s*\{[\s\S]*height:\s*100vh;[\s\S]*height:\s*100svh;[\s\S]*min-height:\s*0;[\s\S]*padding-top:\s*max\(var\(--app-shell-padding\), env\(safe-area-inset-top\)\);[\s\S]*padding-bottom:\s*max\(var\(--app-shell-padding\), env\(safe-area-inset-bottom\)\);/);
-  assert.match(css, /body\.driver-viewport-locked \.delivery-screen\s*\{[\s\S]*height:\s*100%;/);
+  assert.match(shellBlock, /display:\s*flex;/);
+  assert.match(shellBlock, /flex-direction:\s*column;/);
+  assert.match(shellBlock, /height:\s*100vh;[\s\S]*height:\s*100svh;/);
+  assert.match(shellBlock, /padding-top:\s*max\(var\(--app-shell-padding\), env\(safe-area-inset-top\)\);/);
+  assert.match(shellBlock, /padding-bottom:\s*var\(--app-shell-padding\);/);
+  assert.doesNotMatch(shellBlock, /padding-bottom:\s*max\([^;]*safe-area-inset-bottom/);
+  assert.match(screenBlock, /flex:\s*1 1 auto;/);
+  assert.match(screenBlock, /height:\s*auto;/);
+  assert.match(screenBlock, /min-height:\s*0;/);
+  assert.doesNotMatch(screenBlock, /height:\s*100%/);
+  assert.match(listBlock, /padding-bottom:\s*calc\(24px \+ env\(safe-area-inset-bottom\)\);/);
   assert.match(appJs, /function setDriverViewportLocked\(isLocked\)\s*\{[\s\S]*document\.documentElement\.classList\.toggle\("driver-viewport-locked", isLocked\);[\s\S]*document\.body\.classList\.toggle\("driver-viewport-locked", isLocked\);[\s\S]*window\.scrollTo\(0, 0\);/);
   assert.match(appJs, /function showDeliveryScreen\(\)\s*\{[\s\S]*setDriverViewportLocked\(true\);[\s\S]*els\.loginScreen\.hidden = true;/);
   assert.match(appJs, /function showLoginScreen\(\)\s*\{[\s\S]*setDriverViewportLocked\(false\);[\s\S]*els\.deliveryScreen\.hidden = true;/);
