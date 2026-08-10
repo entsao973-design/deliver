@@ -5,6 +5,17 @@
     return normalized || "/";
   }
 
+  function applyIosStandaloneClass(env = root) {
+    const navigator = env.navigator || {};
+    const documentElement = env.document && env.document.documentElement;
+    const isIosStandalone = navigator.standalone === true;
+
+    if (documentElement && documentElement.classList) {
+      documentElement.classList.toggle("ios-standalone", isIosStandalone);
+    }
+    return isIosStandalone;
+  }
+
   function entryPathForDevice(device = {}) {
     const userAgent = String(device.userAgent || "").toLowerCase();
     const maxTouchPoints = Number(device.maxTouchPoints || 0);
@@ -42,6 +53,7 @@
   }
 
   const api = {
+    applyIosStandaloneClass,
     entryPathForDevice,
     redirectHomeByDevice,
   };
@@ -51,6 +63,9 @@
     root.window.HomeRedirect = api;
   }
 
+  if (root.document) {
+    applyIosStandaloneClass(root);
+  }
   if (root.document && root.location) {
     redirectHomeByDevice(root);
   }

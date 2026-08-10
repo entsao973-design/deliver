@@ -9,11 +9,13 @@ const source = fs.readFileSync(path.join(root, "static", "home-redirect.js"), "u
 
 function loadHomeRedirect(overrides = {}) {
   const context = {
+    document: overrides.document,
     navigator: overrides.navigator || {},
     screen: overrides.screen || {},
     location: overrides.location || { pathname: "/", replace() {} },
     window: {},
   };
+  context.window.document = context.document;
   context.window.navigator = context.navigator;
   context.window.screen = context.screen;
   context.window.location = context.location;
@@ -55,6 +57,54 @@ test("home redirect classifies desktop as admin device", () => {
     maxTouchPoints: 0,
     viewportWidth: 1366,
   }), "/admin");
+});
+
+test("home redirect marks only an installed iOS PWA for isolated viewport styling", () => {
+  function classRecorder() {
+    const classes = new Set();
+    return {
+      classes,
+      document: {
+        documentElement: {
+          classList: {
+            toggle(name, enabled) {
+              if (enabled) {
+                classes.add(name);
+              } else {
+                classes.delete(name);
+              }
+            },
+          },
+        },
+      },
+    };
+  }
+
+  const installed = classRecorder();
+  const installedRedirect = loadHomeRedirect({
+    document: installed.document,
+    navigator: { standalone: true },
+  });
+  assert.equal(installedRedirect.applyIosStandaloneClass(), true);
+  assert.equal(installed.classes.has("ios-standalone"), true);
+
+  const browser = classRecorder();
+  const browserRedirect = loadHomeRedirect({
+    document: browser.document,
+    navigator: { standalone: false },
+  });
+  assert.equal(browserRedirect.applyIosStandaloneClass(), false);
+  assert.equal(browser.classes.has("ios-standalone"), false);
+
+  const android = classRecorder();
+  const androidRedirect = loadHomeRedirect({
+    document: android.document,
+    navigator: {
+      userAgent: "Mozilla/5.0 (Linux; Android 16; Pixel 10)",
+    },
+  });
+  assert.equal(androidRedirect.applyIosStandaloneClass(), false);
+  assert.equal(android.classes.has("ios-standalone"), false);
 });
 
 test("home redirect only redirects the root path", () => {

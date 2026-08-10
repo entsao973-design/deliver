@@ -143,6 +143,22 @@ test("driver browser and installed PWA keep the full delivery list inside the iO
   assert.match(appJs, /function showLoginScreen\(\)\s*\{[\s\S]*setDriverViewportLocked\(false\);[\s\S]*els\.deliveryScreen\.hidden = true;/);
 });
 
+test("installed iOS PWA minimizes only its own bottom spacing while preserving the safe area", () => {
+  const html = fs.readFileSync(path.join(staticRoot, "index.html"), "utf8");
+  const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
+  const viewportBlock = cssBlockAfter(css, "html.ios-standalone.driver-viewport-locked,");
+  const shellBlock = cssBlockAfter(css, "html.ios-standalone body.driver-viewport-locked .app-shell");
+  const listBlock = cssBlockAfter(css, "html.ios-standalone body.driver-viewport-locked .delivery-list");
+
+  assert.match(html, /<script src="\/static\/home-redirect\.js"><\/script>\s*<link rel="stylesheet" href="\/static\/styles\.css" \/>/);
+  assert.match(viewportBlock, /height:\s*100vh;/);
+  assert.doesNotMatch(viewportBlock, /100svh/);
+  assert.match(shellBlock, /height:\s*100vh;/);
+  assert.match(shellBlock, /padding-bottom:\s*0;/);
+  assert.match(listBlock, /padding-bottom:\s*env\(safe-area-inset-bottom\);/);
+  assert.doesNotMatch(listBlock, /24px/);
+});
+
 test("driver and admin lists keep cards at content height when few records remain", () => {
   const css = fs.readFileSync(path.join(staticRoot, "styles.css"), "utf8");
   const adminCss = fs.readFileSync(path.join(staticRoot, "admin.css"), "utf8");

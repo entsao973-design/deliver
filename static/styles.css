@@ -100,6 +100,20 @@ body.driver-viewport-locked .delivery-list {
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 
+html.ios-standalone.driver-viewport-locked,
+html.ios-standalone body.driver-viewport-locked {
+  height: 100vh;
+}
+
+html.ios-standalone body.driver-viewport-locked .app-shell {
+  height: 100vh;
+  padding-bottom: 0;
+}
+
+html.ios-standalone body.driver-viewport-locked .delivery-list {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 .delivery-screen .top-bar,
 .delivery-screen .summary-strip {
   flex: 0 0 auto;
