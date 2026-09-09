@@ -564,6 +564,53 @@ class ImporterRulesTest(unittest.TestCase):
                 ],
             )
 
+    @unittest.skipUnless(os.name == "nt", "Windows Explorer ordering requires Windows")
+    def test_archive_photos_returns_windows_explorer_chinese_order(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            photo_root = root / "photos"
+            for company in ["喜美德", "日化", "一航", "榮懋"]:
+                company_root = photo_root / "20260908" / company
+                company_root.mkdir(parents=True)
+                (company_root / "photo.jpg").write_bytes(b"photo")
+
+            repo = DeliveryRepository(
+                None,
+                str(root / "deliveries.json"),
+                str(photo_root),
+                str(root / "archives"),
+            )
+
+            archives = repo.archive_photos("2026-09-08")
+
+            self.assertEqual(
+                [archive["company"] for archive in archives],
+                ["一航", "日化", "喜美德", "榮懋"],
+            )
+
+    @unittest.skipUnless(os.name == "nt", "Windows Explorer ordering requires Windows")
+    def test_list_archives_returns_windows_explorer_chinese_order(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            archive_root = root / "archives"
+            archive_root.mkdir()
+            for company in ["喜美德", "日化", "一航", "榮懋"]:
+                (archive_root / f"20260908_{company}.zip").write_bytes(b"zip")
+
+            repo = DeliveryRepository(
+                None,
+                str(root / "deliveries.json"),
+                str(root / "photos"),
+                str(archive_root),
+            )
+
+            archives = repo.list_archives("2026-09-08")
+
+            self.assertEqual(
+                [archive["company"] for archive in archives],
+                ["一航", "日化", "喜美德", "榮懋"],
+            )
+
     def test_cleanup_delivery_history_removes_all_records_and_files_in_inclusive_range(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

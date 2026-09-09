@@ -46,6 +46,7 @@ from .repository import (
     parse_cleanup_date_range,
     photo_timestamp,
     safe_path_part,
+    sort_like_windows_explorer,
     unique_archive_name,
 )
 
@@ -767,7 +768,8 @@ WHERE {deleted_clause}
             else:
                 company_photos.setdefault(child.name, []).extend(list_photo_files(child))
 
-        for company_name, photos in sorted(company_photos.items()):
+        sorted_companies = sort_like_windows_explorer(company_photos.items(), key=lambda item: item[0])
+        for company_name, photos in sorted_companies:
             if not photos:
                 continue
 

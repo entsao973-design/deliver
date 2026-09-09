@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import shutil
 import threading
 import zipfile
 from datetime import date, datetime
+from functools import cmp_to_key
 from pathlib import Path
 from typing import Any
 
@@ -312,7 +314,8 @@ class DeliveryRepository:
             else:
                 company_photos.setdefault(child.name, []).extend(list_photo_files(child))
 
-        for company_name, photos in sorted(company_photos.items()):
+        sorted_companies = sort_like_windows_explorer(company_photos.items(), key=lambda item: item[0])
+        for company_name, photos in sorted_companies:
             if not photos:
                 continue
 
@@ -692,6 +695,23 @@ def safe_path_part(value: str) -> str:
     return text or "_"
 
 
+def sort_like_windows_explorer(items, key=lambda item: item):
+    values = list(items)
+    if os.name != "nt":
+        return sorted(values, key=key)
+
+    import ctypes
+
+    compare_strings = ctypes.windll.shlwapi.StrCmpLogicalW
+    compare_strings.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p)
+    compare_strings.restype = ctypes.c_int
+
+    def compare(left, right):
+        return compare_strings(str(key(left)), str(key(right)))
+
+    return sorted(values, key=cmp_to_key(compare))
+
+
 def normalize_delivery_date(value: str) -> str:
     text = str(value or "").strip()
     if re.fullmatch(r"\d{8}", text):
@@ -828,7 +848,8 @@ def list_archive_files(archive_root: Path, delivery_date: str) -> list[dict[str,
     date_folder = date_to_folder(delivery_date)
     prefix = f"{date_folder}_"
     archives = []
-    for path in sorted(archive_root.iterdir()):
+    sorted_paths = sort_like_windows_explorer(archive_root.iterdir(), key=lambda item: item.name)
+    for path in sorted_paths:
         if not path.is_file() or path.suffix.lower() != ".zip" or not path.name.startswith(prefix):
             continue
         archives.append({
