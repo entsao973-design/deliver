@@ -731,20 +731,56 @@ function renderArchives() {
   }
 }
 
-function downloadSelectedArchives() {
+async function downloadSelectedArchives() {
   const checked = [...adminEls.archiveList.querySelectorAll("input[type='checkbox']:checked")];
   if (checked.length === 0) {
     setAdminMessage("請先勾選要下載的 ZIP", true);
     return;
   }
-  for (const checkbox of checked) {
-    downloadArchive(checkbox.dataset.name);
+
+  const names = checked.map((checkbox) => checkbox.dataset.name);
+  try {
+    await AdminOperationState.runWithButtonLock(
+      adminEls.downloadArchives,
+      `下載中 0/${names.length}`,
+      async () => {
+        setAdminMessage(`正在準備下載 0/${names.length}`);
+        const result = await AdminArchiveDownload.downloadInBatches(
+          names,
+          (name) => AdminArchiveDownload.fetchAndSaveFile(name, archiveDownloadUrl(name)),
+          {
+            batchSize: 8,
+            batchDelayMs: 1000,
+            onProgress: ({ completed, total }) => {
+              adminEls.downloadArchives.textContent = `下載中 ${completed}/${total}`;
+              setAdminMessage(`正在準備下載 ${completed}/${total}`);
+            },
+          },
+        );
+
+        if (result.failures.length > 0) {
+          const failedNames = result.failures.map((failure) => failure.name).join("、");
+          setAdminMessage(
+            `已送出 ${result.successCount}/${result.total} 個 ZIP；失敗：${failedNames}`,
+            true,
+          );
+          return;
+        }
+        setAdminMessage(`已送出下載 ${result.successCount} 個 ZIP`);
+      },
+    );
+  } catch (error) {
+    setAdminMessage(error.message || "下載封存檔時發生錯誤", true);
   }
+}
+
+function archiveDownloadUrl(name) {
+  return `/api/admin/archives/${encodeURIComponent(name)}?token=${encodeURIComponent(adminState.token)}`;
 }
 
 function downloadArchive(name) {
   const link = document.createElement("a");
-  link.href = `/api/admin/archives/${encodeURIComponent(name)}?token=${encodeURIComponent(adminState.token)}`;
+  link.href = archiveDownloadUrl(name);
   link.download = name;
   document.body.append(link);
   link.click();

@@ -500,7 +500,7 @@ test("admin app header and filter controls use compact spacing", () => {
   assert.match(css, /\.admin-shell\s*\{[\s\S]*padding:\s*8px;/);
   assert.match(css, /\.admin-list\s*\{[\s\S]*gap:\s*4px;/);
   assert.match(css, /\.admin-card\s*\{[\s\S]*padding:\s*4px 14px;/);
-  assert.match(html, /<script src="\/static\/admin-operation-state\.js"><\/script>\s*<script src="\/static\/admin-api\.js"><\/script>/);
+  assert.match(html, /<script src="\/static\/admin-operation-state\.js"><\/script>\s*<script src="\/static\/admin-archive-download\.js"><\/script>\s*<script src="\/static\/admin-api\.js"><\/script>/);
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(adminEls\.uploadExcel, "匯入中\.\.\.",/);
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(adminEls\.archivePhotos, "封存中\.\.\.",/);
   assert.match(adminJs, /AdminOperationState\.runWithButtonLock\(button, "刪除中\.\.\.",/);

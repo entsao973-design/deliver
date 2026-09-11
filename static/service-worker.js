@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.08.10.1";
+const APP_VERSION = "2026.09.11.1";
 const CACHE_NAME = `delivery-proof-pwa-${APP_VERSION}`;
 const SHELL_ASSETS = [
   "/",
@@ -22,6 +22,7 @@ const SHELL_ASSETS = [
   "/static/admin-filter-options.js",
   "/static/admin-photo-view.js",
   "/static/admin-operation-state.js",
+  "/static/admin-archive-download.js",
   "/static/admin.js",
   "/static/pwa.js",
   "/static/icons/icon-192.png",
